@@ -30,6 +30,7 @@ const swaggerDocument = {
           password: { type: "string", example: "Password1!" }
         }
       },
+
       LoginRequest: {
         type: "object",
         required: ["email", "password"],
@@ -38,6 +39,7 @@ const swaggerDocument = {
           password: { type: "string", example: "Password1!" }
         }
       },
+
       ResendVerificationRequest: {
         type: "object",
         required: ["email"],
@@ -45,6 +47,7 @@ const swaggerDocument = {
           email: { type: "string", example: "garrysangha@dal.ca" }
         }
       },
+
       ListingRequest: {
         type: "object",
         required: ["title", "description", "price", "category", "condition"],
@@ -75,10 +78,13 @@ const swaggerDocument = {
           imageUrls: {
             type: "array",
             items: { type: "string" },
-            example: ["https://example.com/book.jpg"]
+            example: [
+              "https://res.cloudinary.com/dxvfxbine/image/upload/example.jpg"
+            ]
           }
         }
       },
+
       InquiryRequest: {
         type: "object",
         required: ["message"],
@@ -88,9 +94,50 @@ const swaggerDocument = {
             example: "Hi, is this textbook still available?"
           }
         }
+      },
+
+      ImageUploadResponse: {
+        type: "object",
+        properties: {
+          message: {
+            type: "string",
+            example: "Image uploaded successfully"
+          },
+          image: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                example:
+                  "https://res.cloudinary.com/dxvfxbine/image/upload/campuscart/listings/example.jpg"
+              },
+              publicId: {
+                type: "string",
+                example: "campuscart/listings/example"
+              },
+              width: {
+                type: "number",
+                example: 1200
+              },
+              height: {
+                type: "number",
+                example: 800
+              },
+              format: {
+                type: "string",
+                example: "jpg"
+              },
+              bytes: {
+                type: "number",
+                example: 240000
+              }
+            }
+          }
+        }
       }
     }
   },
+
   paths: {
     "/": {
       get: {
@@ -101,6 +148,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/health": {
       get: {
         tags: ["Health"],
@@ -110,6 +158,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/auth/register": {
       post: {
         tags: ["Auth"],
@@ -130,6 +179,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/auth/verify-email/{token}": {
       get: {
         tags: ["Auth"],
@@ -148,6 +198,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/auth/resend-verification": {
       post: {
         tags: ["Auth"],
@@ -169,6 +220,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/auth/login": {
       post: {
         tags: ["Auth"],
@@ -190,6 +242,7 @@ const swaggerDocument = {
         }
       }
     },
+
     "/api/auth/me": {
       get: {
         tags: ["Auth"],
@@ -201,6 +254,49 @@ const swaggerDocument = {
         }
       }
     },
+
+    "/api/uploads/listing-image": {
+      post: {
+        tags: ["Uploads"],
+        summary: "Upload listing image to Cloudinary",
+        description:
+          "Uploads a single image to Cloudinary and returns the secure image URL. Use form-data with key named image.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["image"],
+                properties: {
+                  image: {
+                    type: "string",
+                    format: "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: {
+            description: "Image uploaded successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ImageUploadResponse"
+                }
+              }
+            }
+          },
+          400: { description: "No image uploaded or invalid file type" },
+          401: { description: "Unauthorized" },
+          500: { description: "Cloudinary upload failed" }
+        }
+      }
+    },
+
     "/api/listings": {
       get: {
         tags: ["Listings"],
@@ -225,6 +321,18 @@ const swaggerDocument = {
             example: "used"
           },
           {
+            name: "sortBy",
+            in: "query",
+            schema: { type: "string" },
+            example: "createdAt"
+          },
+          {
+            name: "order",
+            in: "query",
+            schema: { type: "string" },
+            example: "desc"
+          },
+          {
             name: "page",
             in: "query",
             schema: { type: "integer" },
@@ -238,9 +346,11 @@ const swaggerDocument = {
           }
         ],
         responses: {
-          200: { description: "Listings returned" }
+          200: { description: "Listings returned" },
+          500: { description: "Failed to fetch listings" }
         }
       },
+
       post: {
         tags: ["Listings"],
         summary: "Create a listing",
@@ -255,10 +365,38 @@ const swaggerDocument = {
         },
         responses: {
           201: { description: "Listing created" },
+          400: { description: "Failed to create listing" },
           401: { description: "Unauthorized" }
         }
       }
     },
+
+    "/api/listings/my/listings": {
+      get: {
+        tags: ["Listings"],
+        summary: "Get logged-in user's listings",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "User listings returned" },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch your listings" }
+        }
+      }
+    },
+
+    "/api/listings/saved/me": {
+      get: {
+        tags: ["Saved Listings"],
+        summary: "Get logged-in user's saved listings",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Saved listings returned" },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch saved listings" }
+        }
+      }
+    },
+
     "/api/listings/{id}": {
       get: {
         tags: ["Listings"],
@@ -273,9 +411,11 @@ const swaggerDocument = {
         ],
         responses: {
           200: { description: "Listing returned" },
-          404: { description: "Listing not found" }
+          404: { description: "Listing not found" },
+          500: { description: "Failed to fetch listing" }
         }
       },
+
       put: {
         tags: ["Listings"],
         summary: "Update listing by ID",
@@ -298,10 +438,13 @@ const swaggerDocument = {
         },
         responses: {
           200: { description: "Listing updated" },
+          400: { description: "Failed to update listing" },
+          401: { description: "Unauthorized" },
           403: { description: "Forbidden" },
           404: { description: "Listing not found" }
         }
       },
+
       delete: {
         tags: ["Listings"],
         summary: "Soft delete listing by ID",
@@ -316,22 +459,57 @@ const swaggerDocument = {
         ],
         responses: {
           200: { description: "Listing removed" },
+          401: { description: "Unauthorized" },
           403: { description: "Forbidden" },
-          404: { description: "Listing not found" }
+          404: { description: "Listing not found" },
+          500: { description: "Failed to delete listing" }
         }
       }
     },
-    "/api/listings/my/listings": {
-      get: {
+
+    "/api/listings/{id}/images": {
+      post: {
         tags: ["Listings"],
-        summary: "Get logged-in user's listings",
+        summary: "Upload image and save URL to listing",
+        description:
+          "Uploads a single image to Cloudinary and pushes the returned secure URL into the listing imageUrls array. Use form-data with key named image.",
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" }
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["image"],
+                properties: {
+                  image: {
+                    type: "string",
+                    format: "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
         responses: {
-          200: { description: "User listings returned" },
-          401: { description: "Unauthorized" }
+          201: { description: "Image uploaded and saved to listing" },
+          400: { description: "No image uploaded or invalid file type" },
+          401: { description: "Unauthorized" },
+          403: { description: "Not listing owner or admin" },
+          404: { description: "Listing not found" },
+          500: { description: "Cloudinary upload failed" }
         }
       }
     },
+
     "/api/listings/{id}/save": {
       post: {
         tags: ["Saved Listings"],
@@ -347,21 +525,13 @@ const swaggerDocument = {
         ],
         responses: {
           200: { description: "Listing saved or removed from saved listings" },
-          404: { description: "Listing not found" }
+          401: { description: "Unauthorized" },
+          404: { description: "Listing not found" },
+          500: { description: "Failed to save listing" }
         }
       }
     },
-    "/api/listings/saved/me": {
-      get: {
-        tags: ["Saved Listings"],
-        summary: "Get logged-in user's saved listings",
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: { description: "Saved listings returned" },
-          401: { description: "Unauthorized" }
-        }
-      }
-    },
+
     "/api/inquiries/listings/{listingId}": {
       post: {
         tags: ["Inquiries"],
@@ -386,30 +556,38 @@ const swaggerDocument = {
         responses: {
           201: { description: "Inquiry sent" },
           400: { description: "Invalid inquiry" },
+          401: { description: "Unauthorized" },
           404: { description: "Listing not found" }
         }
       }
     },
+
     "/api/inquiries/received": {
       get: {
         tags: ["Inquiries"],
         summary: "Get inquiries received by seller",
         security: [{ bearerAuth: [] }],
         responses: {
-          200: { description: "Received inquiries returned" }
+          200: { description: "Received inquiries returned" },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch received inquiries" }
         }
       }
     },
+
     "/api/inquiries/sent": {
       get: {
         tags: ["Inquiries"],
         summary: "Get inquiries sent by buyer",
         security: [{ bearerAuth: [] }],
         responses: {
-          200: { description: "Sent inquiries returned" }
+          200: { description: "Sent inquiries returned" },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch sent inquiries" }
         }
       }
     },
+
     "/api/admin/metrics": {
       get: {
         tags: ["Admin"],
@@ -417,10 +595,13 @@ const swaggerDocument = {
         security: [{ bearerAuth: [] }],
         responses: {
           200: { description: "Metrics returned" },
-          403: { description: "Admin only" }
+          401: { description: "Unauthorized" },
+          403: { description: "Admin only" },
+          500: { description: "Failed to fetch metrics" }
         }
       }
     },
+
     "/api/admin/users": {
       get: {
         tags: ["Admin"],
@@ -428,21 +609,13 @@ const swaggerDocument = {
         security: [{ bearerAuth: [] }],
         responses: {
           200: { description: "Users returned" },
-          403: { description: "Admin only" }
+          401: { description: "Unauthorized" },
+          403: { description: "Admin only" },
+          500: { description: "Failed to fetch users" }
         }
       }
     },
-    "/api/admin/listings": {
-      get: {
-        tags: ["Admin"],
-        summary: "Get all listings including removed listings",
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: { description: "Admin listings returned" },
-          403: { description: "Admin only" }
-        }
-      }
-    },
+
     "/api/admin/users/{id}/deactivate": {
       patch: {
         tags: ["Admin"],
@@ -458,11 +631,29 @@ const swaggerDocument = {
         ],
         responses: {
           200: { description: "User deactivated" },
+          400: { description: "Admin cannot deactivate their own account" },
+          401: { description: "Unauthorized" },
           403: { description: "Admin only" },
-          404: { description: "User not found" }
+          404: { description: "User not found" },
+          500: { description: "Failed to deactivate user" }
         }
       }
     },
+
+    "/api/admin/listings": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get all listings including removed listings",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Admin listings returned" },
+          401: { description: "Unauthorized" },
+          403: { description: "Admin only" },
+          500: { description: "Failed to fetch listings" }
+        }
+      }
+    },
+
     "/api/admin/listings/{id}/remove": {
       patch: {
         tags: ["Admin"],
@@ -478,8 +669,10 @@ const swaggerDocument = {
         ],
         responses: {
           200: { description: "Listing removed" },
+          401: { description: "Unauthorized" },
           403: { description: "Admin only" },
-          404: { description: "Listing not found" }
+          404: { description: "Listing not found" },
+          500: { description: "Failed to remove listing" }
         }
       }
     }

@@ -1,8 +1,12 @@
+# CampusCart Backend README
 
+CampusCart is a campus buy-and-sell marketplace backend built with **Node.js**, **Express**, **MongoDB Atlas**, **Mongoose**, **JWT authentication**, **Gmail SMTP email verification**, **Cloudinary image storage**, and **Swagger API documentation**.
+
+---
 
 ## 1. Big picture: how the backend works
 
-Our system is this:
+The system works like this:
 
 ```text
 React frontend
@@ -12,29 +16,107 @@ Node.js + Express backend
 MongoDB Atlas database
    ↓
 users, listings, inquiries collections
+
+Cloudinary
+   ↑
+backend uploads listing images here
 ```
 
-The backend is the “gatekeeper.” React should not directly talk to MongoDB. React calls API routes like:
+The backend is the gatekeeper. The React frontend should not directly talk to MongoDB or Cloudinary using private secrets. React calls backend routes like:
 
 ```text
 POST /api/auth/register
 POST /api/auth/login
 GET /api/listings
 POST /api/listings
+POST /api/listings/:id/images
 POST /api/listings/:id/save
 POST /api/inquiries/listings/:listingId
 GET /api/admin/metrics
 ```
 
-Our backend decides who is allowed to do what.
+The backend decides:
+
+```text
+who is logged in
+who is verified
+who owns a listing
+who is admin
+who can upload images
+who can create/update/delete data
+```
 
 ---
 
-# 2. Libraries used and what each one does
+## 2. Current backend folder structure
+
+```text
+backend/
+├── config/
+│   ├── cloudinary.js
+│   ├── db.js
+│   └── swagger.js
+├── middleware/
+│   ├── authMiddleware.js
+│   └── uploadMiddleware.js
+├── models/
+│   ├── Inquiry.js
+│   ├── Listing.js
+│   └── User.js
+├── routes/
+│   ├── adminRoutes.js
+│   ├── authRoutes.js
+│   ├── inquiryRoutes.js
+│   ├── listingRoutes.js
+│   └── uploadRoutes.js
+├── utils/
+│   ├── cloudinaryUpload.js
+│   └── sendEmail.js
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+└── server.js
+```
+
+Important:
+
+```text
+.env should exist locally only
+.env.example can be committed
+node_modules should not be committed
+```
+
+---
+
+## 3. Install packages
+
+From inside the `backend/` folder:
+
+```powershell
+npm install express mongoose dotenv cors bcryptjs jsonwebtoken nodemailer swagger-ui-express cloudinary multer
+npm install --save-dev nodemon
+```
+
+Run the backend:
+
+```powershell
+npm run dev
+```
+
+Open Swagger:
+
+```text
+http://localhost:5000/api-docs
+```
+
+---
+
+## 4. Libraries used and what each one does
 
 ## `express`
 
-Express creates Our API server and routes.
+Express creates the API server and routes.
 
 Example:
 
@@ -50,11 +132,11 @@ This means:
 POST http://localhost:5000/api/auth/login
 ```
 
-will run that code.
+will run that route.
 
 ## `mongoose`
 
-Mongoose connects Our Node backend to MongoDB and gives we models like:
+Mongoose connects the Node backend to MongoDB and gives us models like:
 
 ```js
 User
@@ -79,47 +161,47 @@ Example:
 MONGODB_URI=...
 JWT_SECRET=...
 SMTP_PASS=...
+CLOUDINARY_API_SECRET=...
 ```
 
-Our code reads them using:
+The code reads them using:
 
 ```js
 process.env.MONGODB_URI
 process.env.JWT_SECRET
 process.env.SMTP_PASS
+process.env.CLOUDINARY_API_SECRET
 ```
 
-This keeps secrets out of Our code.
+This keeps secrets out of the source code.
 
 ## `cors`
 
-Allows Our React frontend to call Ourbackend.
+Allows the React frontend to call the backend.
 
-Our frontend runs on:
+The frontend runs on:
 
 ```text
 http://localhost:5173
 ```
 
-Our backend runs on:
+The backend runs on:
 
 ```text
 http://localhost:5000
 ```
 
-Browsers block cross-origin requests by default, so `cors` allows Our frontend origin.
+Browsers block cross-origin requests by default, so `cors` allows the frontend origin.
 
 ## `bcryptjs`
 
 Hashes passwords before storing them.
 
-we never want to store this:
+We never store this directly in MongoDB:
 
 ```text
 Password1!
 ```
-
-directly in MongoDB.
 
 Instead, bcrypt stores something like:
 
@@ -127,13 +209,13 @@ Instead, bcrypt stores something like:
 $2b$10$L7a....
 ```
 
-Then on login, bcrypt compares the entered password against the hash.
+On login, bcrypt compares the entered password against the saved hash.
 
 ## `jsonwebtoken`
 
 Creates and verifies login tokens.
 
-After login, backend returns a JWT:
+After login, the backend returns a JWT:
 
 ```text
 eyJhbGciOiJIUzI1NiIsInR5cCI6...
@@ -145,7 +227,7 @@ The frontend sends this token back on protected requests:
 Authorization: Bearer JWT_TOKEN_HERE
 ```
 
-The backend checks that token using `JWT_SECRET`.
+The backend verifies that token using `JWT_SECRET`.
 
 ## Node built-in `crypto`
 
@@ -157,21 +239,61 @@ We use it to create a random token:
 crypto.randomBytes(32).toString("hex")
 ```
 
-Then we hash that token before storing it in MongoDB. This is safer than storing the raw verification link token.
+Then we hash that token before storing it in MongoDB. This is safer than storing the raw verification token.
 
 ## `nodemailer`
 
-Nodemailer sends real emails from Our backend through SMTP. In Ourcase, we are using Gmail SMTP with a Gmail App Password. Nodemailer’s docs show that it creates a transporter and sends mail through providers like Gmail. ([Nodemailer](https://nodemailer.com/guides/using-gmail?utm_source=chatgpt.com "Using Gmail"))
+Nodemailer sends real emails from the backend through SMTP.
+
+In this project, we use Gmail SMTP with a Gmail App Password.
+
+Flow:
+
+```text
+backend
+   ↓ uses SMTP_USER + SMTP_PASS
+Gmail SMTP server
+   ↓ sends email
+user inbox receives verification email
+```
+
+## `cloudinary`
+
+Cloudinary stores uploaded listing images online.
+
+Flow:
+
+```text
+frontend chooses image
+   ↓ multipart/form-data
+backend receives image
+   ↓ Cloudinary API
+Cloudinary stores image
+   ↓ returns secure_url
+backend saves secure_url in listing.imageUrls
+```
+
+## `multer`
+
+Multer handles image uploads sent as `multipart/form-data`.
+
+In this project, the upload form-data key must be:
+
+```text
+image
+```
+
+The backend temporarily keeps the uploaded file in memory, uploads it to Cloudinary, then saves the returned URL.
 
 ## `swagger-ui-express`
 
-Creates the Swagger page:
+Creates the Swagger API documentation page:
 
 ```text
 http://localhost:5000/api-docs
 ```
 
-This is similar to Swagger in .NET Web API. It lets we test routes from the browser.
+This is similar to Swagger in .NET Web API. It lets us test routes from the browser.
 
 ## `nodemon`
 
@@ -189,9 +311,9 @@ nodemon server.js
 
 ---
 
-# 3. `.env`: Our secret configuration file
+# 5. `.env`: secret configuration file
 
-Our `.env` contains runtime configuration.
+The `.env` file contains runtime configuration and secrets.
 
 Example:
 
@@ -201,16 +323,21 @@ CLIENT_URL=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
 API_BASE_URL=http://localhost:5000
 
-MONGODB_URI=mongodb+srv://...
-JWT_SECRET=...
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster0.xxxxx.mongodb.net/campuscart?appName=Cluster0
+
+JWT_SECRET=replace_with_long_random_secret
 JWT_EXPIRES_IN=7d
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=Ourgmail@gmail.com
-SMTP_PASS=Ourgoogle_app_password
-EMAIL_FROM="CampusCart <yoOurail@gmail.com>"
+SMTP_USER=yourgmail@gmail.com
+SMTP_PASS=your_16_character_google_app_password
+EMAIL_FROM="CampusCart <yourgmail@gmail.com>"
+
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
 What each one means:
@@ -237,7 +364,7 @@ Frontend app URL. Later we may redirect verified users there.
 API_BASE_URL
 ```
 
-Backend URL used to build verification links.
+Backend URL used to build email verification links.
 
 ```text
 MONGODB_URI
@@ -249,7 +376,7 @@ MongoDB Atlas connection string.
 JWT_SECRET
 ```
 
-Private signing key for JWT tokens.
+Private signing key for JWT login tokens.
 
 ```text
 JWT_EXPIRES_IN
@@ -267,7 +394,7 @@ Email server connection settings.
 SMTP_USER / SMTP_PASS
 ```
 
-Our Gmail address and App Password.
+Gmail address and Gmail App Password.
 
 ```text
 EMAIL_FROM
@@ -275,53 +402,122 @@ EMAIL_FROM
 
 Sender shown in the verification email.
 
-Important: Our `.env` must never be pushed to GitLab. Our`.gitignore` should include:
+```text
+CLOUDINARY_CLOUD_NAME
+```
+
+Cloudinary cloud name.
+
+```text
+CLOUDINARY_API_KEY
+```
+
+Cloudinary API key.
+
+```text
+CLOUDINARY_API_SECRET
+```
+
+Cloudinary API secret. This must stay private.
+
+Important:
 
 ```gitignore
 .env
 node_modules
 ```
 
-Our already pasted Our MongoDB password earlier, so rotate/change the MongoDB database password before final deployment or public repo work.
+The `.env` file must never be pushed to GitLab/GitHub.
 
 ---
 
-# 4. Gmail App Password: what it is
+# 6. Gmail App Password: what it is
 
-A Gmail App Password is **not Our normal Gmail password**. It is a separate 16-character password that lets an app like OurNode backend send emails through yoOurmail account. Google says App Passwords require 2-Step Verification on the Google Account. ([Google Help](https://support.google.com/mail/answer/185833?hl=en&utm_source=chatgpt.com "Sign in with app passwords - Gmail Help"))
+A Gmail App Password is not the normal Gmail password. It is a separate 16-character password that lets an app like our Node backend send emails through a Gmail account.
 
-Flow:
-
-```text
-Our backend
-   ↓ uses SMTP_USER + SMTP_PASS
-Gmail SMTP server
-   ↓ sends email
-User inbox receives verification email
-```
-
-For Gmail SMTP, Our `.env` should be:
+For Gmail SMTP, `.env` should look like this:
 
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=007.garry.earl@gmail.com
-SMTP_PASS=Our_16_character_app_password
-EMAIL_FROM="CampusCart <007.garry.earl@gmail.com>"
+SMTP_USER=yourgmail@gmail.com
+SMTP_PASS=your_16_character_app_password
+EMAIL_FROM="CampusCart <yourgmail@gmail.com>"
 ```
 
-Because we are using Our personal Gmail, the email will likely appear as:
+Because the backend uses a Gmail account, the email may appear as:
 
 ```text
-CampusCart <007.garry.earl@gmail.com>
+CampusCart <yourgmail@gmail.com>
 ```
 
-So yes, users may see Our Gmail address. Later, use a project Gmail or domain email.
+For a class demo, this is fine. Later, use a project Gmail or a domain email.
 
 ---
 
-# 5. `server.js`: the main backend entry point
+# 7. Cloudinary image storage: what it does
+
+Cloudinary stores listing images online.
+
+Before Cloudinary, listings used image URLs like:
+
+```json
+"imageUrls": [
+  "https://example.com/book.jpg"
+]
+```
+
+Now, the app can upload real images and store Cloudinary URLs like:
+
+```json
+"imageUrls": [
+  "https://res.cloudinary.com/your-cloud-name/image/upload/campuscart/listings/example.jpg"
+]
+```
+
+The backend supports two image upload approaches:
+
+## Option A: upload image first, then create listing
+
+```text
+POST /api/uploads/listing-image
+```
+
+This uploads the image to Cloudinary and returns the image URL.
+
+Then the frontend sends that returned URL when creating a listing:
+
+```text
+POST /api/listings
+```
+
+with:
+
+```json
+{
+  "title": "Used Calculus Textbook",
+  "description": "Good condition textbook.",
+  "price": 35,
+  "category": "textbooks",
+  "condition": "used",
+  "imageUrls": ["https://res.cloudinary.com/..."]
+}
+```
+
+## Option B: create listing first, then attach image
+
+```text
+POST /api/listings/:id/images
+```
+
+This uploads the image to Cloudinary and pushes the returned URL directly into that listing's `imageUrls` array.
+
+This is useful when the listing already exists.
+
+---
+
+# 8. `server.js`: main backend entry point
 
 This file starts everything.
 
@@ -339,64 +535,31 @@ It does these jobs:
 9. Start server on port 5000
 ```
 
-Important parts:
-
-```js
-dotenv.config();
-```
-
-Loads `.env`.
-
-```js
-connectDB();
-```
-
-Connects to MongoDB Atlas.
-
-```js
-app.use(express.json());
-```
-
-Lets backend read JSON bodies like:
-
-```json
-{
-  "email": "test@dal.ca",
-  "password": "Password1!"
-}
-```
+Important route mounting:
 
 ```js
 app.use("/api/auth", require("./routes/authRoutes"));
-```
-
-Mounts auth routes.
-
-So this:
-
-```js
-router.post("/login")
-```
-
-inside `authRoutes.js` becomes:
-
-```text
-POST /api/auth/login
-```
-
-Same pattern:
-
-```js
 app.use("/api/listings", require("./routes/listingRoutes"));
 app.use("/api/inquiries", require("./routes/inquiryRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/uploads", require("./routes/uploadRoutes"));
+```
+
+This means:
+
+```text
+authRoutes.js       → /api/auth/*
+listingRoutes.js    → /api/listings/*
+inquiryRoutes.js    → /api/inquiries/*
+adminRoutes.js      → /api/admin/*
+uploadRoutes.js     → /api/uploads/*
 ```
 
 ---
 
-# 6. `config/db.js`: MongoDB connection
+# 9. `config/db.js`: MongoDB connection
 
-This file connects Our backend to MongoDB Atlas.
+This file connects the backend to MongoDB Atlas.
 
 Main logic:
 
@@ -404,23 +567,50 @@ Main logic:
 await mongoose.connect(process.env.MONGODB_URI);
 ```
 
-If it works, we see:
+If it works, the backend logs:
 
 ```text
 MongoDB connected: ...
 ```
 
-If it fails, backend exits:
+If it fails, the backend exits:
 
 ```js
 process.exit(1);
 ```
 
-That is good. If DB is not connected, the API should not keep running pretending everything is fine.
+That is good. If the database is not connected, the API should not keep running pretending everything is fine.
 
 ---
 
-# 7. `models/User.js`: user database design
+# 10. `config/cloudinary.js`: Cloudinary configuration
+
+This file connects the backend to Cloudinary.
+
+```js
+const cloudinary = require("cloudinary").v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true
+});
+
+module.exports = cloudinary;
+```
+
+Important:
+
+```text
+CLOUDINARY_API_SECRET must only be used in the backend.
+Do not put it in React.
+Do not commit it.
+```
+
+---
+
+# 11. `models/User.js`: user database design
 
 This file defines what a user document looks like in MongoDB.
 
@@ -481,7 +671,7 @@ This stores references to listings the user saved.
 
 ## Password validation
 
-Our backend enforces:
+The backend enforces:
 
 ```text
 minimum 8 characters
@@ -489,7 +679,7 @@ at least 1 number
 at least 1 symbol
 ```
 
-This must be enforced on backend. Frontend can also enforce it for nicer user experience, but backend is the real security layer.
+Frontend can also enforce it for better user experience, but backend validation is the real security layer.
 
 ## Password hashing
 
@@ -562,7 +752,7 @@ So MongoDB does not store the actual clickable token.
 
 ---
 
-# 8. `models/Listing.js`: product listing database design
+# 12. `models/Listing.js`: product listing database design
 
 This file defines listings.
 
@@ -601,6 +791,23 @@ Listing: Used Calculus Textbook
 Seller: User ObjectId("...")
 ```
 
+## Image URLs
+
+```js
+imageUrls: {
+  type: [String],
+  default: []
+}
+```
+
+This stores image URLs.
+
+Now those URLs usually come from Cloudinary:
+
+```text
+https://res.cloudinary.com/...
+```
+
 ## Status
 
 ```js
@@ -610,7 +817,7 @@ status: {
 }
 ```
 
-When deleting a listing, we do **soft delete**:
+When deleting a listing, the backend does a soft delete:
 
 ```text
 status = "removed"
@@ -622,7 +829,7 @@ This is better than hard deleting because admin can still audit removed content.
 
 ---
 
-# 9. `models/Inquiry.js`: buyer/seller message design
+# 13. `models/Inquiry.js`: buyer/seller message design
 
 An inquiry has:
 
@@ -638,13 +845,13 @@ updatedAt
 
 References:
 
-```js
+```text
 listing → Listing
 buyer → User
 seller → User
 ```
 
-This lets we do:
+This lets the app support:
 
 ```text
 Buyer sends message about listing
@@ -654,7 +861,7 @@ Buyer sees sent inquiries
 
 ---
 
-# 10. `utils/sendEmail.js`: email sending
+# 14. `utils/sendEmail.js`: email sending
 
 This file sends email using Nodemailer.
 
@@ -688,7 +895,7 @@ Then sends:
 
 ```js
 await transporter.sendMail({
-  from,
+  from: process.env.EMAIL_FROM,
   to,
   subject,
   text,
@@ -696,11 +903,49 @@ await transporter.sendMail({
 });
 ```
 
-Nodemailer’s SMTP transport is configured using host, port, secure, and auth settings, which is exactly what Our `.env` provides. ([Nodemailer](https://nodemailer.com/guides/using-gmail?utm_source=chatgpt.com "Using Gmail"))
+This is used during registration and resend verification.
 
 ---
 
-# 11. `middleware/authMiddleware.js`: route protection
+# 15. `utils/cloudinaryUpload.js`: upload helper
+
+This file uploads an image buffer to Cloudinary.
+
+Main idea:
+
+```text
+req.file.buffer
+   ↓
+uploadBufferToCloudinary()
+   ↓
+Cloudinary
+   ↓
+secure_url returned
+```
+
+It also checks required Cloudinary environment variables:
+
+```js
+const requiredEnvVars = [
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET"
+];
+```
+
+If any are missing, the backend returns an error instead of failing silently.
+
+The upload folder is:
+
+```text
+campuscart/listings
+```
+
+So Cloudinary images are grouped under that folder.
+
+---
+
+# 16. `middleware/authMiddleware.js`: route protection
 
 This file has two middleware functions:
 
@@ -743,7 +988,7 @@ Attach user to req.user
 Continue to route
 ```
 
-Header looks like:
+Header:
 
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1...
@@ -784,7 +1029,7 @@ It allows only:
 req.user.role === "admin"
 ```
 
-Otherwise:
+Otherwise, it returns:
 
 ```json
 {
@@ -794,9 +1039,44 @@ Otherwise:
 
 ---
 
-# 12. `routes/authRoutes.js`: register, verify email, login
+# 17. `middleware/uploadMiddleware.js`: image file validation
 
-This is the most important file.
+This middleware handles image files from the frontend.
+
+Accepted file types:
+
+```text
+image/jpeg
+image/jpg
+image/png
+image/webp
+```
+
+Max file size:
+
+```text
+5 MB
+```
+
+Required form-data key:
+
+```text
+image
+```
+
+So in Swagger, Postman, or frontend FormData:
+
+```js
+formData.append("image", file);
+```
+
+If the user uploads something invalid, the backend returns an error.
+
+---
+
+# 18. `routes/authRoutes.js`: register, verify email, login
+
+This is the main authentication file.
 
 ## Register route
 
@@ -824,7 +1104,7 @@ Backend does:
 5. Create email verification token
 6. Save hashed token in MongoDB
 7. Build verification URL
-8. Send email using Nodemailer
+8. Send email using Nodemailer/Gmail SMTP
 9. Return success message
 ```
 
@@ -938,7 +1218,7 @@ It returns the currently logged-in user.
 
 ---
 
-# 13. `routes/listingRoutes.js`: listing CRUD
+# 19. `routes/listingRoutes.js`: listing CRUD and listing images
 
 ## Public browse
 
@@ -998,7 +1278,48 @@ Backend uses:
 seller: req.user._id
 ```
 
-This is important. The frontend does **not** send seller ID. The backend gets seller from the JWT-authenticated user.
+This is important. The frontend does not send the seller ID. The backend gets the seller from the JWT-authenticated user.
+
+## Upload image to existing listing
+
+```text
+POST /api/listings/:id/images
+```
+
+Protected route.
+
+Requires:
+
+```http
+Authorization: Bearer JWT_TOKEN_HERE
+```
+
+Body type:
+
+```text
+multipart/form-data
+```
+
+Required key:
+
+```text
+image
+```
+
+Backend checks:
+
+```text
+1. User is logged in
+2. Listing exists
+3. Listing is not removed
+4. User owns listing OR user is admin
+5. File is valid image
+6. Upload image to Cloudinary
+7. Push Cloudinary secure_url into listing.imageUrls
+8. Save listing
+```
+
+This returns the uploaded image info and the updated listing.
 
 ## Update listing
 
@@ -1042,7 +1363,7 @@ Not hard delete.
 GET /api/listings/my/listings
 ```
 
-Returns listings created by logged-in user.
+Returns listings created by the logged-in user.
 
 ## Saved listings
 
@@ -1068,11 +1389,59 @@ add to savedListings
 GET /api/listings/saved/me
 ```
 
-Returns saved listings for current user.
+Returns saved listings for the current user.
 
 ---
 
-# 14. `routes/inquiryRoutes.js`: buyer messages
+# 20. `routes/uploadRoutes.js`: standalone image upload
+
+This route uploads an image to Cloudinary without attaching it directly to a listing.
+
+```text
+POST /api/uploads/listing-image
+```
+
+Protected route.
+
+Requires:
+
+```http
+Authorization: Bearer JWT_TOKEN_HERE
+```
+
+Body type:
+
+```text
+multipart/form-data
+```
+
+Required key:
+
+```text
+image
+```
+
+Successful response:
+
+```json
+{
+  "message": "Image uploaded successfully",
+  "image": {
+    "url": "https://res.cloudinary.com/...",
+    "publicId": "campuscart/listings/...",
+    "width": 1200,
+    "height": 800,
+    "format": "jpg",
+    "bytes": 240000
+  }
+}
+```
+
+Use this when the frontend wants to upload the image first and then include the returned URL in `POST /api/listings`.
+
+---
+
+# 21. `routes/inquiryRoutes.js`: buyer messages
 
 ## Send inquiry
 
@@ -1097,7 +1466,7 @@ Backend checks:
 4. Create inquiry
 ```
 
-This prevents a seller from sending inquiry to their own listing.
+This prevents a seller from sending an inquiry to their own listing.
 
 ## Received inquiries
 
@@ -1117,7 +1486,7 @@ Buyer uses this to see messages they sent.
 
 ---
 
-# 15. `routes/adminRoutes.js`: admin dashboard API
+# 22. `routes/adminRoutes.js`: admin dashboard API
 
 All routes here are protected by:
 
@@ -1193,13 +1562,13 @@ flaggedListings
 totalInquiries
 ```
 
-This supports Our admin dashboard.
+This supports the admin dashboard.
 
 ---
 
-# 16. `config/swagger.js`: API documentation
+# 23. `config/swagger.js`: API documentation
 
-Swagger file describes Our API in OpenAPI format.
+Swagger describes the API in OpenAPI format.
 
 It defines:
 
@@ -1211,6 +1580,7 @@ request schemas
 routes
 parameters
 responses
+multipart image upload routes
 ```
 
 Important part:
@@ -1232,11 +1602,13 @@ For protected routes, Swagger knows they need JWT.
 In Swagger:
 
 ```text
-1. Login
-2. Copy JWT token
-3. Click Authorize
-4. Paste token
-5. Test protected routes
+1. Register user
+2. Verify email
+3. Login
+4. Copy JWT token
+5. Click Authorize
+6. Paste token
+7. Test protected routes
 ```
 
 Usually with Swagger bearerAuth, paste the token value only. If it fails, paste:
@@ -1247,11 +1619,26 @@ Bearer TOKEN_HERE
 
 depending on Swagger UI behavior.
 
+Swagger now also documents:
+
+```text
+POST /api/uploads/listing-image
+POST /api/listings/{id}/images
+```
+
+Both use:
+
+```text
+multipart/form-data
+key: image
+type: file
+```
+
 ---
 
-# 17. Database collections
+# 24. Database collections
 
-Our MongoDB database is:
+MongoDB database:
 
 ```text
 campuscart
@@ -1284,6 +1671,8 @@ Example document:
 
 ## `listings`
 
+Example document:
+
 ```json
 {
   "_id": "...",
@@ -1292,12 +1681,18 @@ Example document:
   "price": 35,
   "category": "textbooks",
   "condition": "used",
+  "imageUrls": [
+    "https://res.cloudinary.com/your-cloud-name/image/upload/campuscart/listings/example.jpg"
+  ],
   "seller": "USER_OBJECT_ID",
-  "status": "active"
+  "status": "active",
+  "isFlagged": false
 }
 ```
 
 ## `inquiries`
+
+Example document:
 
 ```json
 {
@@ -1310,9 +1705,11 @@ Example document:
 }
 ```
 
+Cloudinary images are not stored inside MongoDB as files. MongoDB stores only the Cloudinary image URLs.
+
 ---
 
-# 18. Full auth flow from frontend perspective
+# 25. Full auth flow from frontend perspective
 
 ## Register
 
@@ -1322,12 +1719,12 @@ React sends:
 POST /api/auth/register
 ```
 
-Backend creates user and sends email.
+Backend creates the user and sends verification email.
 
 Frontend shows:
 
 ```text
-Please check Our email to verify Ouraccount.
+Please check your email to verify your account.
 ```
 
 ## Verify email
@@ -1363,9 +1760,28 @@ Authorization: Bearer token
 
 Backend verifies token, gets user, creates listing.
 
+## Upload listing image
+
+React sends:
+
+```http
+POST /api/listings/:id/images
+Authorization: Bearer token
+Content-Type: multipart/form-data
+```
+
+with FormData:
+
+```js
+const formData = new FormData();
+formData.append("image", selectedFile);
+```
+
+Backend uploads to Cloudinary and saves the returned URL into the listing.
+
 ## Admin routes
 
-Only token from admin user can access:
+Only an admin user token can access:
 
 ```text
 /api/admin/*
@@ -1373,7 +1789,7 @@ Only token from admin user can access:
 
 ---
 
-# 19. Password validation: backend vs frontend
+# 26. Password validation: backend vs frontend
 
 Do it in both places.
 
@@ -1397,39 +1813,34 @@ But frontend validation is only user experience, not security.
 
 ---
 
-# 20. Current professional/security notes
+# 27. Image upload validation
 
-we should fix these before final deployment:
+Image validation happens in the backend.
 
-1. **Rotate MongoDB password** because it was pasted in chat.
+Current rules:
 
-2. Replace `JWT_SECRET` with a long random value:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```text
+accepted: jpg, jpeg, png, webp
+max size: 5 MB
+form-data key: image
 ```
 
-3. Never commit `.env`.
+If the file is not valid, backend returns a 400 error.
 
-4. Use a project Gmail later instead of personal Gmail.
+Example error:
 
-5. Do not allow public users to choose `role: "admin"`.
-
-6. Keep email verification URL out of the register response in final version.
-
-7. Use deployed URLs later:
-
-```env
-CLIENT_URL=https://Our-frontend.vercel.app
-FRONTEND_URL=https://Ourfrontend.vercel.app
-API_BASE_URL=https://yoOurackend.onrender.com
+```json
+{
+  "message": "Image upload failed",
+  "error": "Only image files are allowed. Use JPG, JPEG, PNG, or WEBP."
+}
 ```
 
-8. Atlas Network Access should be restricted later instead of open to all IPs.
+This protects the backend from random files being uploaded.
 
 ---
 
-# 21. How to test everything
+# 28. How to test everything
 
 ## 1. Start backend
 
@@ -1448,20 +1859,20 @@ http://localhost:5000/api-docs
 ```json
 {
   "name": "Test User",
-  "email": "real-email-we-can-open@gmail.com",
+  "email": "real-email-you-can-open@gmail.com",
   "password": "Password1!"
 }
 ```
 
 ## 4. Check email
 
-Click verification link.
+Click the verification link.
 
 ## 5. Login
 
 ```json
 {
-  "email": "real-email-we-can-open@gmail.com",
+  "email": "real-email-you-can-open@gmail.com",
   "password": "Password1!"
 }
 ```
@@ -1472,7 +1883,7 @@ Copy token.
 
 Click **Authorize**.
 
-Paste token.
+Paste the token.
 
 ## 7. Create listing
 
@@ -1483,16 +1894,160 @@ Paste token.
   "price": 35,
   "category": "textbooks",
   "condition": "used",
-  "imageUrls": ["https://example.com/book.jpg"]
+  "imageUrls": []
 }
 ```
 
-## 8. Test save/inquiry/admin routes
+Copy the returned listing `_id`.
 
-Use a second verified user for buyer behavior. Use admin role only for admin dashboard testing.
+## 8. Upload image directly to that listing
+
+Use:
+
+```text
+POST /api/listings/{id}/images
+```
+
+In Swagger:
+
+```text
+id = listing id
+image = choose file
+```
+
+This should return an updated listing with:
+
+```json
+"imageUrls": [
+  "https://res.cloudinary.com/..."
+]
+```
+
+## 9. Test standalone image upload
+
+Use:
+
+```text
+POST /api/uploads/listing-image
+```
+
+In Swagger:
+
+```text
+image = choose file
+```
+
+This returns an image URL without saving it to a listing.
+
+## 10. Test save/inquiry/admin routes
+
+Use a second verified user for buyer behavior.
+
+Use an admin user only for admin dashboard testing.
 
 ---
 
-The backend is now doing the important full-stack work: MongoDB stores data, Express exposes the API, JWT controls sessions, email verification controls account activation, and Swagger documents/tests the API.
+# 29. Postman image upload test
 
+For standalone image upload:
 
+```http
+POST http://localhost:5000/api/uploads/listing-image
+Authorization: Bearer JWT_TOKEN_HERE
+```
+
+Body:
+
+```text
+form-data
+key: image
+type: File
+value: choose image file
+```
+
+For upload and save to listing:
+
+```http
+POST http://localhost:5000/api/listings/LISTING_ID/images
+Authorization: Bearer JWT_TOKEN_HERE
+```
+
+Body:
+
+```text
+form-data
+key: image
+type: File
+value: choose image file
+```
+
+---
+
+# 30. Current professional/security notes
+
+Fix or keep in mind before final deployment:
+
+1. **Do not commit `.env`.**
+
+2. **Rotate any MongoDB password that was pasted into chat or shared anywhere.**
+
+3. **Keep `CLOUDINARY_API_SECRET` private.**
+
+4. **Do not put Cloudinary API secret in React.**
+
+5. Replace `JWT_SECRET` with a long random value:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+6. Use a project Gmail later instead of personal Gmail.
+
+7. Public registration should not allow users to choose:
+
+```json
+{
+  "role": "admin"
+}
+```
+
+The backend should always set public registered users to:
+
+```text
+student
+```
+
+8. Keep email verification URL out of the register response in final production version.
+
+9. Use deployed URLs later:
+
+```env
+CLIENT_URL=https://your-frontend.vercel.app
+FRONTEND_URL=https://your-frontend.vercel.app
+API_BASE_URL=https://your-backend.onrender.com
+```
+
+10. Atlas Network Access should be restricted later instead of open to all IPs.
+
+11. Cloudinary uploads should stay behind protected routes so only logged-in verified users can upload.
+
+12. If image deletion is added later, store Cloudinary `publicId` in MongoDB too. Right now the listing stores only image URLs.
+
+---
+
+# 31. Final backend responsibilities
+
+The backend now handles the important full-stack work:
+
+```text
+MongoDB stores users, listings, and inquiries
+Express exposes the API
+JWT controls logged-in sessions
+bcrypt protects passwords
+Gmail SMTP sends email verification
+crypto creates secure verification tokens
+Cloudinary stores uploaded listing images
+Multer handles image file uploads
+Swagger documents and tests the API
+Admin routes control platform moderation
+```
