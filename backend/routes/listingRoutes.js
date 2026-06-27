@@ -109,7 +109,15 @@ router.get("/saved/me", protect, async (req, res) => {
 // GET /api/listings/:id
 router.get("/:id", async (req, res) => {
   try {
-    const listing = await Listing.findById(req.params.id).populate(
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid listing ID."
+      });
+    }
+
+    const listing = await Listing.findById(id).populate(
       "seller",
       "name email"
     );
