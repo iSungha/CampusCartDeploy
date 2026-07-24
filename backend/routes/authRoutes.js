@@ -11,6 +11,10 @@ const router = express.Router();
 const passwordRule =
   /^(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
 
+// Set AUTO_VERIFY_EMAIL=true in Render for dev/demo mode.
+// This skips sending verification email and marks users as verified immediately.
+const autoVerifyEmail = process.env.AUTO_VERIFY_EMAIL === "true";
+
 const generateToken = (userId) => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing from .env");
@@ -47,6 +51,12 @@ router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email, and password are required"
+      });
+    }
+
     if (!passwordRule.test(password || "")) {
       return res.status(400).json({
         message:
@@ -66,27 +76,31 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password,
-      role: "student"
+      role: "student",
+      isEmailVerified: autoVerifyEmail
     });
 
-    const rawVerificationToken = user.createEmailVerificationToken();
-    await user.save();
+    if (!autoVerifyEmail) {
+      const rawVerificationToken = user.createEmailVerificationToken();
+      await user.save();
 
-    const apiBaseUrl = process.env.API_BASE_URL || "http://localhost:5000";
-    const verificationUrl = `${apiBaseUrl}/api/auth/verify-email/${rawVerificationToken}`;
+      const apiBaseUrl = process.env.API_BASE_URL || "http://localhost:5000";
+      const verificationUrl = `${apiBaseUrl}/api/auth/verify-email/${rawVerificationToken}`;
 
-    const emailContent = buildVerificationEmail(user.name, verificationUrl);
+      const emailContent = buildVerificationEmail(user.name, verificationUrl);
 
-    await sendEmail({
-      to: user.email,
-      subject: emailContent.subject,
-      text: emailContent.text,
-      html: emailContent.html
-    });
+      await sendEmail({
+        to: user.email,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html
+      });
+    }
 
     res.status(201).json({
-      message:
-        "User registered successfully. Please check your email to verify your account.",
+      message: autoVerifyEmail
+        ? "User registered successfully. Email verification is skipped in development/demo mode."
+        : "User registered successfully. Please check your email to verify your account.",
       user: {
         id: user._id,
         name: user.name,
@@ -170,6 +184,12 @@ router.post("/resend-verification", async (req, res) => {
   try {
     const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required"
+      });
+    }
+
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -181,6 +201,20 @@ router.post("/resend-verification", async (req, res) => {
     if (user.isEmailVerified) {
       return res.status(400).json({
         message: "Email is already verified"
+      });
+    }
+
+    // In Render/dev demo mode, verify directly instead of sending email.
+    if (autoVerifyEmail) {
+      user.isEmailVerified = true;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+
+      await user.save();
+
+      return res.status(200).json({
+        message:
+          "Email verification is skipped in development/demo mode. User has been verified."
       });
     }
 
