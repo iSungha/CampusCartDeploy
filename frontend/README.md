@@ -1,16 +1,62 @@
-# React + Vite
+# CampusCart Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Merged React/Vite frontend for CampusCart.
 
-Currently, two official plugins are available:
+## API environments
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The deployed Render API is the default:
 
-## React Compiler
+```env
+VITE_API_BASE_URL=https://campuscartapi.onrender.com/api
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Run against the deployed API:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Run against the local backend at `http://localhost:5000/api`:
+
+```bash
+npm run dev:local
+```
+
+The local command loads `.env.local-api`. No source-code change is required when switching APIs.
+
+## Included frontend integration
+
+- AI product-description generation through `POST /api/ai/generate-description`
+- Optional rough notes sent as the backend `notes` field
+- Editable AI-generated description before listing creation or update
+- Admin dashboard link visible only to `role: "admin"`
+- Admin-only route guard for `/admin`
+- Admin metrics, listing moderation, and user deactivation
+- Server-backed logout through `POST /api/auth/logout`
+- Authenticated password reset through `POST /api/auth/reset-password`
+- Netlify SPA redirects and security headers
+
+## AI example
+
+Use these listing values:
+
+- Title: `Used Calculus Textbook`
+- Category: `Textbooks`
+- Condition: `Used`
+- Price: `35`
+- Quick notes: `Some highlighting`
+
+Click **Generate AI Description**. The returned text is inserted into the product-description field and remains editable.
+
+## Production build
+
+```bash
+npm run build
+```
+
+Local-API build for testing:
+
+```bash
+npm run build:local
+```

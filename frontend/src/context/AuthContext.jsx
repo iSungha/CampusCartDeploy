@@ -4,17 +4,19 @@ import api from "../api/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const storedToken = localStorage.getItem("campuscart_token") || null;
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(
-    localStorage.getItem("campuscart_token") || null
-  );
-  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(storedToken);
+  const [loading, setLoading] = useState(Boolean(storedToken));
 
   const isAuthenticated = Boolean(token);
 
   useEffect(() => {
     async function loadUser() {
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
@@ -33,6 +35,21 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [token]);
 
+  async function refreshUser() {
+    try {
+      const response = await api.get("/auth/me");
+      setUser(response.data.user || response.data);
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+    }
+  }
+
+  function updateUser(partialUser) {
+    setUser((previous) =>
+      previous ? { ...previous, ...partialUser } : partialUser
+    );
+  }
+
   async function register(formData) {
     const response = await api.post("/auth/register", formData);
     return response.data;
@@ -40,7 +57,6 @@ export function AuthProvider({ children }) {
 
   async function login(formData) {
     const response = await api.post("/auth/login", formData);
-
     const returnedToken = response.data.token;
 
     if (!returnedToken) {
@@ -54,10 +70,20 @@ export function AuthProvider({ children }) {
     return response.data;
   }
 
-  function logout() {
-    localStorage.removeItem("campuscart_token");
-    setToken(null);
-    setUser(null);
+  async function logout() {
+    try {
+      if (token) {
+        await api.post("/auth/logout");
+      }
+    } catch (error) {
+      // Local cleanup must still happen when the API is unavailable or the
+      // token has already expired.
+      console.error("Server logout failed; clearing local session:", error);
+    } finally {
+      localStorage.removeItem("campuscart_token");
+      setToken(null);
+      setUser(null);
+    }
   }
 
   return (
@@ -70,6 +96,8 @@ export function AuthProvider({ children }) {
         register,
         login,
         logout,
+        refreshUser,
+        updateUser,
       }}
     >
       {children}

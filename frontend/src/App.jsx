@@ -9,16 +9,16 @@ import SellerDashboard from "./pages/SellerDashboard";
 import EditListing from "./pages/EditListing";
 import SavedListings from "./pages/SavedListings";
 import ContactSeller from "./pages/ContactSeller";
+import Profile from "./pages/Profile";
+import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
       <Route path="/listings" element={<BrowseListings />} />
       <Route path="/listings/:id" element={<ListingDetails />} />
 
@@ -63,6 +63,24 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EditListing />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminDashboard />
           </ProtectedRoute>
         }
       />

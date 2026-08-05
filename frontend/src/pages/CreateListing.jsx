@@ -4,22 +4,23 @@ import { PlusCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
+import AiDescriptionAssistant from "../components/AiDescriptionAssistant";
 import Navbar from "../components/Navbar";
 
 const categories = [
   { label: "Textbooks", value: "textbooks" },
   { label: "Electronics", value: "electronics" },
   { label: "Furniture", value: "furniture" },
-  { label: "Room Essentials", value: "room-essentials" },
   { label: "Clothing", value: "clothing" },
   { label: "School Supplies", value: "school supplies" },
+  { label: "Other", value: "other" },
 ];
 
 const conditions = [
   { label: "New", value: "new" },
-  { label: "Like New", value: "like-new" },
+  { label: "Like New", value: "like new" },
   { label: "Used", value: "used" },
-  { label: "Good", value: "good" },
+  { label: "Fair", value: "fair" },
 ];
 
 export default function CreateListing() {
@@ -28,6 +29,7 @@ export default function CreateListing() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    notes: "",
     price: "",
     category: "textbooks",
     condition: "used",
@@ -39,10 +41,14 @@ export default function CreateListing() {
   function handleChange(event) {
     const { name, value } = event.target;
 
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
+  }
+
+  function setGeneratedDescription(description) {
+    setFormData((previous) => ({ ...previous, description }));
   }
 
   async function handleSubmit(event) {
@@ -54,7 +60,7 @@ export default function CreateListing() {
     }
 
     if (!formData.description.trim()) {
-      toast.error("Description is required.");
+      toast.error("Description is required. Write one or generate an AI draft.");
       return;
     }
 
@@ -112,19 +118,8 @@ export default function CreateListing() {
             <input
               type="text"
               name="title"
-              placeholder="Used Psychology Textbook"
+              placeholder="Used Calculus Textbook"
               value={formData.title}
-              onChange={handleChange}
-            />
-          </label>
-
-          <label>
-            Description
-            <textarea
-              name="description"
-              rows="5"
-              placeholder="Describe the item condition, pickup location, and important details."
-              value={formData.description}
               onChange={handleChange}
             />
           </label>
@@ -136,7 +131,8 @@ export default function CreateListing() {
                 type="number"
                 name="price"
                 min="1"
-                placeholder="45"
+                step="0.01"
+                placeholder="35"
                 value={formData.price}
                 onChange={handleChange}
               />
@@ -173,6 +169,27 @@ export default function CreateListing() {
             </label>
           </div>
 
+          <AiDescriptionAssistant
+            title={formData.title}
+            category={formData.category}
+            condition={formData.condition}
+            price={formData.price}
+            notes={formData.notes}
+            onNotesChange={handleChange}
+            onDescriptionGenerated={setGeneratedDescription}
+          />
+
+          <label>
+            Product Description
+            <textarea
+              name="description"
+              rows="6"
+              placeholder="Write your description here, or use the AI generator above."
+              value={formData.description}
+              onChange={handleChange}
+            />
+          </label>
+
           <label>
             Image URL Optional
             <input
@@ -184,7 +201,11 @@ export default function CreateListing() {
             />
           </label>
 
-          <button className="primary-button full" type="submit" disabled={submitting}>
+          <button
+            className="primary-button full"
+            type="submit"
+            disabled={submitting}
+          >
             <PlusCircle size={18} />
             {submitting ? "Creating..." : "Create Listing"}
           </button>

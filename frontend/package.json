@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:local": "vite --mode local-api",
+    "build:local": "vite build --mode local-api"
   },
   "dependencies": {
     "axios": "^1.18.0",

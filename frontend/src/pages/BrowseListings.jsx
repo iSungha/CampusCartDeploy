@@ -10,15 +10,17 @@ const categories = [
   { label: "Textbooks", value: "textbooks" },
   { label: "Electronics", value: "electronics" },
   { label: "Furniture", value: "furniture" },
-  { label: "Room Essentials", value: "room-essentials" },
+  { label: "Clothing", value: "clothing" },
+  { label: "School Supplies", value: "school supplies" },
+  { label: "Other", value: "other" },
 ];
 
 const conditions = [
   { label: "Any Condition", value: "" },
   { label: "New", value: "new" },
-  { label: "Like New", value: "like-new" },
+  { label: "Like New", value: "like new" },
   { label: "Used", value: "used" },
-  { label: "Good", value: "good" },
+  { label: "Fair", value: "fair" },
 ];
 
 function getParams(filters) {

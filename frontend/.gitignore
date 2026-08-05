@@ -10,8 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-*.local
-.env
+
+# Personal overrides and secrets. The committed .env files in this project
+# contain only public API base URLs.
+.env.local
+.env.*.local
 
 # Editor directories and files
 .vscode/*

@@ -1,13 +1,14 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ShoppingCart, User } from "lucide-react";
+import { ShieldCheck, ShoppingCart, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === "admin";
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate("/");
   }
 
@@ -23,16 +24,26 @@ export default function Navbar() {
         <NavLink to="/sell">Sell</NavLink>
         <NavLink to="/saved">Saved</NavLink>
         <NavLink to="/dashboard">Dashboard</NavLink>
+        {isAdmin && (
+          <NavLink to="/admin" className="admin-nav-link">
+            <ShieldCheck size={16} />
+            Admin Dashboard
+          </NavLink>
+        )}
       </nav>
 
       <div className="navbar-actions">
         {isAuthenticated ? (
           <>
-            <button className="profile-button" type="button">
+            <Link className="profile-button" to="/profile">
               <User size={16} />
               Profile
-            </button>
-            <button className="secondary-button small" onClick={handleLogout}>
+            </Link>
+            <button
+              className="secondary-button small"
+              type="button"
+              onClick={handleLogout}
+            >
               Logout
             </button>
           </>
