@@ -19,12 +19,22 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user || !user.isActive) {
       return res.status(401).json({
         message: "Not authorized. User not found or inactive."
+      });
+    }
+
+    // Tokens created before tokenVersion was introduced are treated as
+    // version 0, preserving existing sessions until the first logout/reset.
+    const tokenVersion = Number(decoded.tokenVersion || 0);
+    const currentVersion = Number(user.tokenVersion || 0);
+
+    if (tokenVersion !== currentVersion) {
+      return res.status(401).json({
+        message: "Not authorized. This login token has been invalidated."
       });
     }
 
@@ -35,9 +45,9 @@ const protect = async (req, res, next) => {
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
-    res.status(401).json({
+    return res.status(401).json({
       message: "Not authorized. Token failed.",
       error: error.message
     });

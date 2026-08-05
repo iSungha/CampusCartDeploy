@@ -48,6 +48,23 @@ const swaggerDocument = {
         }
       },
 
+      ResetPasswordRequest: {
+        type: "object",
+        required: ["currentPassword", "newPassword"],
+        properties: {
+          currentPassword: {
+            type: "string",
+            example: "Password1!"
+          },
+          newPassword: {
+            type: "string",
+            example: "NewPassword2!",
+            description:
+              "At least 8 characters with at least one number and one symbol."
+          }
+        }
+      },
+
       ListingRequest: {
         type: "object",
         required: ["title", "description", "price", "category", "condition"],
@@ -92,6 +109,54 @@ const swaggerDocument = {
           message: {
             type: "string",
             example: "Hi, is this textbook still available?"
+          }
+        }
+      },
+
+      AiDescriptionRequest: {
+        type: "object",
+        required: ["title", "category", "condition", "price"],
+        properties: {
+          title: {
+            type: "string",
+            example: "Used Calculus Textbook"
+          },
+          category: {
+            type: "string",
+            example: "textbooks"
+          },
+          condition: {
+            type: "string",
+            example: "used"
+          },
+          price: {
+            type: "number",
+            example: 35
+          },
+          notes: {
+            type: "string",
+            example: "Some highlighting"
+          }
+        }
+      },
+
+      AiDescriptionResponse: {
+        type: "object",
+        properties: {
+          description: {
+            type: "string",
+            example:
+              "Used calculus textbook in good condition with some highlighting. It is a practical and affordable option for a student who needs a course copy without paying full retail price. Available for $35."
+          },
+          generatedFrom: {
+            type: "object",
+            properties: {
+              title: { type: "string", example: "Used Calculus Textbook" },
+              category: { type: "string", example: "textbooks" },
+              condition: { type: "string", example: "used" },
+              price: { type: "number", example: 35 },
+              notes: { type: "string", example: "Some highlighting" }
+            }
           }
         }
       },
@@ -144,7 +209,7 @@ const swaggerDocument = {
         tags: ["Health"],
         summary: "API root",
         responses: {
-          200: { description: "API running" }
+          200: { description: "API running with detected runtime and email verification mode" }
         }
       }
     },
@@ -154,7 +219,7 @@ const swaggerDocument = {
         tags: ["Health"],
         summary: "Health check",
         responses: {
-          200: { description: "Backend health check" }
+          200: { description: "Backend health check with detected runtime and email verification mode" }
         }
       }
     },
@@ -164,7 +229,7 @@ const swaggerDocument = {
         tags: ["Auth"],
         summary: "Register a new student account",
         description:
-          "Creates a student account, hashes the password, creates an email verification token, and sends a verification email.",
+          "Creates a student account and hashes the password. Locally, it sends a verification email. On Render, the account is automatically verified because email delivery is disabled for this deployment.",
         requestBody: {
           required: true,
           content: {
@@ -174,7 +239,7 @@ const swaggerDocument = {
           }
         },
         responses: {
-          201: { description: "User registered and verification email sent" },
+          201: { description: "User registered; verification email sent locally or automatically verified on Render" },
           400: { description: "Registration failed" }
         }
       }
@@ -239,6 +304,46 @@ const swaggerDocument = {
           200: { description: "Login successful" },
           401: { description: "Invalid email or password" },
           403: { description: "Email not verified" }
+        }
+      }
+    },
+
+    "/api/auth/logout": {
+      post: {
+        tags: ["Auth"],
+        summary: "Logout user",
+        description:
+          "Invalidates all JWTs previously issued to the logged-in user by incrementing tokenVersion. The frontend must also remove its stored bearer token.",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Logout successful and existing tokens invalidated" },
+          401: { description: "Unauthorized or token already invalidated" },
+          500: { description: "Logout failed" }
+        }
+      }
+    },
+
+    "/api/auth/reset-password": {
+      post: {
+        tags: ["Auth"],
+        summary: "Reset the logged-in user's password",
+        description:
+          "Requires the current password. On success, the password is replaced and all existing JWTs are invalidated. Works locally and on Render without sending email.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ResetPasswordRequest" }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Password reset successfully; log in again" },
+          400: { description: "Missing, weak, or reused new password" },
+          401: { description: "Unauthorized or current password is incorrect" },
+          404: { description: "User not found" },
+          500: { description: "Password reset failed" }
         }
       }
     },
@@ -584,6 +689,40 @@ const swaggerDocument = {
           200: { description: "Sent inquiries returned" },
           401: { description: "Unauthorized" },
           500: { description: "Failed to fetch sent inquiries" }
+        }
+      }
+    },
+
+    "/api/ai/generate-description": {
+      post: {
+        tags: ["AI"],
+        summary: "Generate an editable product description",
+        description:
+          "Uses the existing listing title, category, condition, price, and optional seller notes to create a short description. The API key remains on the backend.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AiDescriptionRequest" }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Description generated",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AiDescriptionResponse" }
+              }
+            }
+          },
+          400: { description: "Required listing data is invalid or missing" },
+          401: { description: "Unauthorized" },
+          403: { description: "Email verification required" },
+          502: { description: "AI provider request failed" },
+          503: { description: "GEMINI_API_KEY is not configured" },
+          504: { description: "AI provider request timed out" }
         }
       }
     },

@@ -67,6 +67,14 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+
+    // Included in every JWT. Incrementing it invalidates previously issued
+    // tokens after logout or a password reset.
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0
     }
   },
   {

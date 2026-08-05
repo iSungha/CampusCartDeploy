@@ -66,4 +66,10 @@ const listingSchema = new mongoose.Schema(
   }
 );
 
+// Server optimization 2: indexes match the browse, filter, sort, and
+// seller-dashboard queries used by the application.
+listingSchema.index({ status: 1, createdAt: -1 });
+listingSchema.index({ status: 1, category: 1, condition: 1, price: 1 });
+listingSchema.index({ seller: 1, createdAt: -1 });
+
 module.exports = mongoose.model("Listing", listingSchema);

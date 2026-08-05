@@ -3,8 +3,23 @@ const express = require("express");
 const Listing = require("../models/Listing");
 const User = require("../models/User");
 const { protect } = require("../middleware/authMiddleware");
+const {
+  getCache,
+  setCache,
+  deleteCache,
+  clearCacheByPrefix
+} = require("../utils/cache");
 
 const router = express.Router();
+const LISTINGS_CACHE_TTL_MS = 60000;
+
+function clearListingCache(listingId) {
+  clearCacheByPrefix("listings:");
+
+  if (listingId) {
+    deleteCache(`listing:${listingId}`);
+  }
+}
 
 // GET /api/listings
 router.get("/", async (req, res) => {
@@ -48,6 +63,24 @@ router.get("/", async (req, res) => {
     const pageSize = Math.min(Math.max(Number(limit), 1), 50);
     const skip = (pageNumber - 1) * pageSize;
 
+    // Server optimization 1: cache repeated public browse/filter requests.
+    const cacheKey = `listings:${JSON.stringify({
+      search: search || "",
+      category: category || "",
+      condition: condition || "",
+      sortBy: safeSortBy,
+      sortOrder,
+      pageNumber,
+      pageSize
+    })}`;
+
+    const cachedResponse = getCache(cacheKey);
+
+    if (cachedResponse) {
+      res.set("X-Cache", "HIT");
+      return res.status(200).json(cachedResponse);
+    }
+
     const listings = await Listing.find(filter)
       .populate("seller", "name email")
       .sort({ [safeSortBy]: sortOrder })
@@ -56,12 +89,17 @@ router.get("/", async (req, res) => {
 
     const total = await Listing.countDocuments(filter);
 
-    res.status(200).json({
+    const responseBody = {
       listings,
       page: pageNumber,
       pages: Math.ceil(total / pageSize),
       total
-    });
+    };
+
+    setCache(cacheKey, responseBody, LISTINGS_CACHE_TTL_MS);
+    res.set("X-Cache", "MISS");
+
+    res.status(200).json(responseBody);
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch listings",
@@ -109,6 +147,14 @@ router.get("/saved/me", protect, async (req, res) => {
 // GET /api/listings/:id
 router.get("/:id", async (req, res) => {
   try {
+    const cacheKey = `listing:${req.params.id}`;
+    const cachedListing = getCache(cacheKey);
+
+    if (cachedListing) {
+      res.set("X-Cache", "HIT");
+      return res.status(200).json(cachedListing);
+    }
+
     const listing = await Listing.findById(req.params.id).populate(
       "seller",
       "name email"
@@ -119,6 +165,9 @@ router.get("/:id", async (req, res) => {
         message: "Listing not found"
       });
     }
+
+    setCache(cacheKey, listing, LISTINGS_CACHE_TTL_MS);
+    res.set("X-Cache", "MISS");
 
     res.status(200).json(listing);
   } catch (error) {
@@ -144,6 +193,8 @@ router.post("/", protect, async (req, res) => {
       imageUrls,
       seller: req.user._id
     });
+
+    clearListingCache();
 
     res.status(201).json(listing);
   } catch (error) {
@@ -183,6 +234,8 @@ router.put("/:id", protect, async (req, res) => {
       }
     );
 
+    clearListingCache(req.params.id);
+
     res.status(200).json(updatedListing);
   } catch (error) {
     res.status(400).json({
@@ -214,6 +267,8 @@ router.delete("/:id", protect, async (req, res) => {
 
     listing.status = "removed";
     await listing.save();
+
+    clearListingCache(req.params.id);
 
     res.status(200).json({
       message: "Listing removed successfully",
