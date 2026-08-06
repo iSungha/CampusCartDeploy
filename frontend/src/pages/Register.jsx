@@ -63,14 +63,22 @@ export default function Register() {
     try {
       setSubmitting(true);
 
-      await register({
+      const registration = await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
 
-      toast.success("Account created successfully.");
-      navigate("/listings");
+      if (registration.autoLoggedIn) {
+        toast.success("Account created. You are now logged in.");
+        navigate("/listings", { replace: true });
+        return;
+      }
+
+      toast.success(
+        "Account created. Check your email to verify it before logging in."
+      );
+      navigate("/login", { replace: true });
     } catch (error) {
       const message =
         error.response?.data?.message ||

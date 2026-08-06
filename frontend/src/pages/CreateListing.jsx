@@ -4,7 +4,9 @@ import { PlusCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
+import { uploadListingImages } from "../api/uploadListingImages";
 import AiDescriptionAssistant from "../components/AiDescriptionAssistant";
+import ListingImageUploader from "../components/ListingImageUploader";
 import Navbar from "../components/Navbar";
 
 const categories = [
@@ -33,10 +35,11 @@ export default function CreateListing() {
     price: "",
     category: "textbooks",
     condition: "used",
-    imageUrl: "",
   });
+  const [imageFiles, setImageFiles] = useState([]);
+  const [submitStage, setSubmitStage] = useState("");
 
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = Boolean(submitStage);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -70,11 +73,14 @@ export default function CreateListing() {
     }
 
     try {
-      setSubmitting(true);
+      let imageUrls = [];
 
-      const imageUrls = formData.imageUrl.trim()
-        ? [formData.imageUrl.trim()]
-        : [];
+      if (imageFiles.length) {
+        setSubmitStage("Uploading images...");
+        imageUrls = await uploadListingImages(imageFiles);
+      }
+
+      setSubmitStage("Creating listing...");
 
       const response = await api.post("/listings", {
         title: formData.title.trim(),
@@ -94,10 +100,11 @@ export default function CreateListing() {
       toast.error(
         error.response?.data?.message ||
           error.response?.data?.error ||
+          error.message ||
           "Failed to create listing."
       );
     } finally {
-      setSubmitting(false);
+      setSubmitStage("");
     }
   }
 
@@ -121,6 +128,7 @@ export default function CreateListing() {
               placeholder="Used Calculus Textbook"
               value={formData.title}
               onChange={handleChange}
+              disabled={submitting}
             />
           </label>
 
@@ -135,6 +143,7 @@ export default function CreateListing() {
                 placeholder="35"
                 value={formData.price}
                 onChange={handleChange}
+                disabled={submitting}
               />
             </label>
 
@@ -144,6 +153,7 @@ export default function CreateListing() {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
+                disabled={submitting}
               >
                 {categories.map((category) => (
                   <option key={category.value} value={category.value}>
@@ -159,6 +169,7 @@ export default function CreateListing() {
                 name="condition"
                 value={formData.condition}
                 onChange={handleChange}
+                disabled={submitting}
               >
                 {conditions.map((condition) => (
                   <option key={condition.value} value={condition.value}>
@@ -187,19 +198,17 @@ export default function CreateListing() {
               placeholder="Write your description here, or use the AI generator above."
               value={formData.description}
               onChange={handleChange}
+              disabled={submitting}
             />
           </label>
 
-          <label>
-            Image URL Optional
-            <input
-              type="url"
-              name="imageUrl"
-              placeholder="https://example.com/item-image.jpg"
-              value={formData.imageUrl}
-              onChange={handleChange}
-            />
-          </label>
+          <ListingImageUploader
+            files={imageFiles}
+            onFilesChange={setImageFiles}
+            existingImageUrls={[]}
+            onExistingImageUrlsChange={() => {}}
+            disabled={submitting}
+          />
 
           <button
             className="primary-button full"
@@ -207,7 +216,7 @@ export default function CreateListing() {
             disabled={submitting}
           >
             <PlusCircle size={18} />
-            {submitting ? "Creating..." : "Create Listing"}
+            {submitStage || "Create Listing"}
           </button>
         </form>
       </main>

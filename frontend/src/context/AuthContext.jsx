@@ -11,6 +11,18 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = Boolean(token);
 
+  function saveSession(responseData) {
+    const returnedToken = responseData?.token;
+
+    if (!returnedToken) {
+      throw new Error("Authentication succeeded, but no token was returned.");
+    }
+
+    localStorage.setItem("campuscart_token", returnedToken);
+    setToken(returnedToken);
+    setUser(responseData.user || null);
+  }
+
   useEffect(() => {
     async function loadUser() {
       if (!token) {
@@ -52,21 +64,49 @@ export function AuthProvider({ children }) {
 
   async function register(formData) {
     const response = await api.post("/auth/register", formData);
-    return response.data;
+    const registrationData = response.data;
+
+    // Support a future backend version that returns a token directly from
+    // registration. The current backend returns the created user, so the
+    // frontend immediately calls login with the same credentials.
+    if (registrationData?.token) {
+      saveSession(registrationData);
+      return { ...registrationData, autoLoggedIn: true };
+    }
+
+    try {
+      const loginResponse = await api.post("/auth/login", {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      saveSession(loginResponse.data);
+
+      return {
+        ...registrationData,
+        autoLoggedIn: true,
+        token: loginResponse.data.token,
+        user: loginResponse.data.user || registrationData.user,
+      };
+    } catch (loginError) {
+      // Local development intentionally requires email verification. In that
+      // mode registration still succeeds, but automatic login must wait until
+      // the email has been verified. Render auto-verifies and logs in here.
+      if (registrationData?.user && !registrationData.user.isEmailVerified) {
+        return {
+          ...registrationData,
+          autoLoggedIn: false,
+          requiresVerification: true,
+        };
+      }
+
+      throw loginError;
+    }
   }
 
   async function login(formData) {
     const response = await api.post("/auth/login", formData);
-    const returnedToken = response.data.token;
-
-    if (!returnedToken) {
-      throw new Error("Login successful, but no token was returned.");
-    }
-
-    localStorage.setItem("campuscart_token", returnedToken);
-    setToken(returnedToken);
-    setUser(response.data.user || null);
-
+    saveSession(response.data);
     return response.data;
   }
 

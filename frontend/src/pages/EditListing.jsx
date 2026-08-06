@@ -4,7 +4,9 @@ import { Save } from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
+import { uploadListingImages } from "../api/uploadListingImages";
 import AiDescriptionAssistant from "../components/AiDescriptionAssistant";
+import ListingImageUploader from "../components/ListingImageUploader";
 import Navbar from "../components/Navbar";
 
 const categories = [
@@ -34,11 +36,13 @@ export default function EditListing() {
     price: "",
     category: "textbooks",
     condition: "used",
-    imageUrl: "",
   });
-
+  const [existingImageUrls, setExistingImageUrls] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState("");
+
+  const submitting = Boolean(submitStage);
 
   useEffect(() => {
     async function loadListing() {
@@ -55,8 +59,10 @@ export default function EditListing() {
           price: listing.price || "",
           category: listing.category || "textbooks",
           condition: listing.condition || "used",
-          imageUrl: listing.imageUrls?.[0] || "",
         });
+        setExistingImageUrls(
+          Array.isArray(listing.imageUrls) ? listing.imageUrls : []
+        );
       } catch (error) {
         console.error("Load listing for edit error:", error);
         toast.error("Failed to load listing.");
@@ -84,17 +90,30 @@ export default function EditListing() {
   async function handleSubmit(event) {
     event.preventDefault();
 
+    if (!formData.title.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
+
     if (!formData.description.trim()) {
       toast.error("Description is required.");
       return;
     }
 
-    try {
-      setSubmitting(true);
+    if (!formData.price || Number(formData.price) <= 0) {
+      toast.error("Price must be greater than 0.");
+      return;
+    }
 
-      const imageUrls = formData.imageUrl.trim()
-        ? [formData.imageUrl.trim()]
-        : [];
+    try {
+      let newlyUploadedUrls = [];
+
+      if (imageFiles.length) {
+        setSubmitStage("Uploading images...");
+        newlyUploadedUrls = await uploadListingImages(imageFiles);
+      }
+
+      setSubmitStage("Saving changes...");
 
       await api.put(`/listings/${id}`, {
         title: formData.title.trim(),
@@ -102,7 +121,7 @@ export default function EditListing() {
         price: Number(formData.price),
         category: formData.category,
         condition: formData.condition,
-        imageUrls,
+        imageUrls: [...existingImageUrls, ...newlyUploadedUrls],
       });
 
       toast.success("Listing updated.");
@@ -112,10 +131,11 @@ export default function EditListing() {
       toast.error(
         error.response?.data?.message ||
           error.response?.data?.error ||
+          error.message ||
           "Failed to update listing."
       );
     } finally {
-      setSubmitting(false);
+      setSubmitStage("");
     }
   }
 
@@ -141,6 +161,7 @@ export default function EditListing() {
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
+                disabled={submitting}
               />
             </label>
 
@@ -154,6 +175,7 @@ export default function EditListing() {
                   step="0.01"
                   value={formData.price}
                   onChange={handleChange}
+                  disabled={submitting}
                 />
               </label>
 
@@ -163,6 +185,7 @@ export default function EditListing() {
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
+                  disabled={submitting}
                 >
                   {categories.map((category) => (
                     <option key={category.value} value={category.value}>
@@ -178,6 +201,7 @@ export default function EditListing() {
                   name="condition"
                   value={formData.condition}
                   onChange={handleChange}
+                  disabled={submitting}
                 >
                   {conditions.map((condition) => (
                     <option key={condition.value} value={condition.value}>
@@ -205,18 +229,17 @@ export default function EditListing() {
                 rows="6"
                 value={formData.description}
                 onChange={handleChange}
+                disabled={submitting}
               />
             </label>
 
-            <label>
-              Image URL Optional
-              <input
-                type="url"
-                name="imageUrl"
-                value={formData.imageUrl}
-                onChange={handleChange}
-              />
-            </label>
+            <ListingImageUploader
+              files={imageFiles}
+              onFilesChange={setImageFiles}
+              existingImageUrls={existingImageUrls}
+              onExistingImageUrlsChange={setExistingImageUrls}
+              disabled={submitting}
+            />
 
             <button
               className="primary-button full"
@@ -224,7 +247,7 @@ export default function EditListing() {
               disabled={submitting}
             >
               <Save size={18} />
-              {submitting ? "Saving..." : "Save Changes"}
+              {submitStage || "Save Changes"}
             </button>
           </form>
         )}
