@@ -99,11 +99,10 @@ export default function ListingImageUploader({
       <div className="listing-image-upload-heading">
         <div>
           <span id="image-upload-title" className="listing-image-upload-title">
-            Product Images (optional)
+            Upload Product Images (optional)
           </span>
           <p>
-            Choose up to {MAX_LISTING_IMAGES} JPG, PNG, or WEBP files. Each image
-            can be up to 5 MB.
+            Choose image files from your device. CampusCart uploads them to Cloudinary first, then saves the returned Cloudinary URLs with the listing. You can select up to {MAX_LISTING_IMAGES} JPG, PNG, or WEBP files, up to 5 MB each.
           </p>
         </div>
 

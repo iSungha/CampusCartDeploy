@@ -103,3 +103,13 @@ Local-API build for testing:
 ```bash
 npm run build:local
 ```
+
+## Listing images and refresh-safe login
+
+- The Create/Edit Listing pages use a file picker, not a manual image URL field.
+- Each selected image is sent to `POST /api/uploads/listing-image` as multipart form-data using the `image` key.
+- The backend uploads the file to Cloudinary and returns `image.url`.
+- Only the returned Cloudinary URL is included in the listing `imageUrls` array.
+- The token and logged-in user are saved in localStorage.
+- Temporary Render cold starts, network failures, CORS errors, and 5xx responses no longer erase the saved login during refresh.
+- `vercel.json` rewrites deep links to `index.html`, so refreshing `/listings`, `/profile`, and other React routes works on Vercel.

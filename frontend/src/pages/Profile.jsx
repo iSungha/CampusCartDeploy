@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 
 import api from "../api/api";
 import Navbar from "../components/Navbar";
-import SiteFooter from "../components/SiteFooter";
 import { useAuth } from "../context/AuthContext";
 
 const passwordRule =
@@ -165,7 +164,6 @@ export default function Profile() {
         </div>
       </main>
 
-      <SiteFooter />
     </>
   );
 }

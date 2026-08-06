@@ -3,72 +3,159 @@ import api from "../api/api";
 
 const AuthContext = createContext(null);
 
+const TOKEN_STORAGE_KEY = "campuscart_token";
+const USER_STORAGE_KEY = "campuscart_user";
+
+function readStoredUser() {
+  try {
+    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Failed to read the stored CampusCart user:", error);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const storedToken = localStorage.getItem("campuscart_token") || null;
-  const [user, setUser] = useState(null);
+  const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY) || null;
+  const [user, setUser] = useState(readStoredUser);
   const [token, setToken] = useState(storedToken);
   const [loading, setLoading] = useState(Boolean(storedToken));
+  const [sessionError, setSessionError] = useState("");
 
   const isAuthenticated = Boolean(token);
 
+  function storeUser(nextUser) {
+    setUser(nextUser || null);
+
+    if (nextUser) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  }
+
+  function clearSession() {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    setToken(null);
+    setUser(null);
+    setSessionError("");
+  }
+
   function saveSession(responseData) {
     const returnedToken = responseData?.token;
+    const returnedUser = responseData?.user;
 
     if (!returnedToken) {
       throw new Error("Authentication succeeded, but no token was returned.");
     }
 
-    localStorage.setItem("campuscart_token", returnedToken);
+    localStorage.setItem(TOKEN_STORAGE_KEY, returnedToken);
     setToken(returnedToken);
-    setUser(responseData.user || null);
+    storeUser(returnedUser || null);
+    setSessionError("");
   }
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadUser() {
       if (!token) {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
         return;
       }
 
       try {
         setLoading(true);
         const response = await api.get("/auth/me");
-        setUser(response.data.user || response.data);
+
+        if (!cancelled) {
+          storeUser(response.data.user || response.data);
+          setSessionError("");
+        }
       } catch (error) {
-        console.error("Failed to load user:", error);
-        localStorage.removeItem("campuscart_token");
-        setToken(null);
-        setUser(null);
+        if (cancelled) {
+          return;
+        }
+
+        const status = error.response?.status;
+
+        // Only delete the saved login when the API confirms that the token is
+        // invalid or forbidden. A Render cold start, temporary network error,
+        // CORS issue, or 5xx response must not log the user out on refresh.
+        if (status === 401 || status === 403) {
+          clearSession();
+        } else {
+          console.error("Unable to refresh the CampusCart session:", error);
+          setSessionError(
+            "CampusCart could not verify your session right now. Your login has been kept."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   async function refreshUser() {
+    if (!token) {
+      return null;
+    }
+
     try {
+      setLoading(true);
       const response = await api.get("/auth/me");
-      setUser(response.data.user || response.data);
+      const refreshedUser = response.data.user || response.data;
+      storeUser(refreshedUser);
+      setSessionError("");
+      return refreshedUser;
     } catch (error) {
-      console.error("Failed to refresh user:", error);
+      const status = error.response?.status;
+
+      if (status === 401 || status === 403) {
+        clearSession();
+      } else {
+        setSessionError(
+          "CampusCart could not verify your session right now. Your login has been kept."
+        );
+      }
+
+      throw error;
+    } finally {
+      setLoading(false);
     }
   }
 
   function updateUser(partialUser) {
-    setUser((previous) =>
-      previous ? { ...previous, ...partialUser } : partialUser
-    );
+    setUser((previous) => {
+      const nextUser = previous
+        ? { ...previous, ...partialUser }
+        : partialUser;
+
+      if (nextUser) {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
+      }
+
+      return nextUser;
+    });
   }
 
   async function register(formData) {
     const response = await api.post("/auth/register", formData);
     const registrationData = response.data;
 
-    // Support a future backend version that returns a token directly from
-    // registration. The current backend returns the created user, so the
-    // frontend immediately calls login with the same credentials.
     if (registrationData?.token) {
       saveSession(registrationData);
       return { ...registrationData, autoLoggedIn: true };
@@ -89,9 +176,8 @@ export function AuthProvider({ children }) {
         user: loginResponse.data.user || registrationData.user,
       };
     } catch (loginError) {
-      // Local development intentionally requires email verification. In that
-      // mode registration still succeeds, but automatic login must wait until
-      // the email has been verified. Render auto-verifies and logs in here.
+      // Local development intentionally requires email verification. Render
+      // auto-verifies the account, so registration logs the user in there.
       if (registrationData?.user && !registrationData.user.isEmailVerified) {
         return {
           ...registrationData,
@@ -120,9 +206,7 @@ export function AuthProvider({ children }) {
       // token has already expired.
       console.error("Server logout failed; clearing local session:", error);
     } finally {
-      localStorage.removeItem("campuscart_token");
-      setToken(null);
-      setUser(null);
+      clearSession();
     }
   }
 
@@ -132,6 +216,7 @@ export function AuthProvider({ children }) {
         user,
         token,
         loading,
+        sessionError,
         isAuthenticated,
         register,
         login,
