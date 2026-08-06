@@ -34,8 +34,9 @@ export default function ContactSeller() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const cleanedMessage = message.trim();
 
-    if (!message.trim()) {
+    if (!cleanedMessage) {
       toast.error("Message is required.");
       return;
     }
@@ -43,12 +44,16 @@ export default function ContactSeller() {
     try {
       setSubmitting(true);
 
-      await api.post(`/inquiries/listings/${id}`, {
-        message: message.trim(),
+      const response = await api.post(`/inquiries/listings/${id}`, {
+        message: cleanedMessage,
       });
 
-      toast.success("Inquiry sent to seller.");
-      navigate(`/listings/${id}`);
+      const threadId = response.data?.threadId;
+      toast.success("Message sent to seller.");
+
+      navigate(threadId ? `/inquiries/${threadId}` : "/inquiries", {
+        replace: true,
+      });
     } catch (error) {
       console.error("Send inquiry error:", error);
       toast.error(
@@ -74,7 +79,10 @@ export default function ContactSeller() {
         <div className="page-header">
           <p className="eyebrow">Buyer inquiry</p>
           <h1>Contact Seller</h1>
-          <p>Send a message about this listing.</p>
+          <p>
+            Start a conversation about this listing. Future replies will stay
+            in the same thread.
+          </p>
         </div>
 
         {loading && <p className="page-message">Loading listing...</p>}
@@ -96,10 +104,18 @@ export default function ContactSeller() {
                 Message
                 <textarea
                   rows="7"
+                  maxLength={1000}
                   placeholder="Hi, is this still available? I can meet near campus."
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
+                  aria-describedby="inquiry-character-count"
                 />
+                <small
+                  id="inquiry-character-count"
+                  className="inquiry-character-count"
+                >
+                  {message.length}/1000 characters
+                </small>
               </label>
 
               <button
@@ -108,7 +124,7 @@ export default function ContactSeller() {
                 disabled={submitting}
               >
                 <Send size={18} />
-                {submitting ? "Sending..." : "Send Inquiry"}
+                {submitting ? "Sending..." : "Start Conversation"}
               </button>
             </form>
           </div>

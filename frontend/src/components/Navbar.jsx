@@ -23,6 +23,7 @@ export default function Navbar() {
         <NavLink to="/listings">Browse</NavLink>
         <NavLink to="/sell">Sell</NavLink>
         <NavLink to="/saved">Saved</NavLink>
+        <NavLink to="/inquiries">Inquiries</NavLink>
         <NavLink to="/dashboard">Dashboard</NavLink>
         {isAdmin && (
           <NavLink to="/admin" className="admin-nav-link">

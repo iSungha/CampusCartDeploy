@@ -113,6 +113,45 @@ const swaggerDocument = {
         }
       },
 
+      InquiryMessage: {
+        type: "object",
+        properties: {
+          _id: { type: "string" },
+          listing: { type: "object" },
+          buyer: { type: "object" },
+          seller: { type: "object" },
+          sender: { type: "object" },
+          message: {
+            type: "string",
+            example: "Yes, it is still available."
+          },
+          status: {
+            type: "string",
+            enum: ["new", "read", "closed"]
+          },
+          createdAt: { type: "string", format: "date-time" }
+        }
+      },
+
+      InquiryThread: {
+        type: "object",
+        properties: {
+          threadId: { type: "string" },
+          listing: { type: "object" },
+          buyer: { type: "object" },
+          seller: { type: "object" },
+          otherUser: { type: "object" },
+          currentUserRole: {
+            type: "string",
+            enum: ["buyer", "seller"]
+          },
+          messages: {
+            type: "array",
+            items: { $ref: "#/components/schemas/InquiryMessage" }
+          }
+        }
+      },
+
       AiDescriptionRequest: {
         type: "object",
         required: ["title", "category", "condition", "price"],
@@ -633,6 +672,79 @@ const swaggerDocument = {
           401: { description: "Unauthorized" },
           404: { description: "Listing not found" },
           500: { description: "Failed to save listing" }
+        }
+      }
+    },
+
+    "/api/inquiries/threads": {
+      get: {
+        tags: ["Inquiries"],
+        summary: "Get grouped inquiry conversations",
+        description:
+          "Returns one thread per listing, buyer, and seller. Messages from the same buyer about the same listing are grouped together.",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Conversation summaries returned" },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch inquiry conversations" }
+        }
+      }
+    },
+
+    "/api/inquiries/threads/{threadId}": {
+      get: {
+        tags: ["Inquiries"],
+        summary: "Get one inquiry conversation",
+        description:
+          "Returns all messages in a conversation and marks unread incoming messages as read.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "threadId",
+            in: "path",
+            required: true,
+            schema: { type: "string" }
+          }
+        ],
+        responses: {
+          200: { description: "Conversation returned" },
+          401: { description: "Unauthorized" },
+          403: { description: "Not a participant in this conversation" },
+          404: { description: "Conversation not found" },
+          500: { description: "Failed to fetch conversation" }
+        }
+      }
+    },
+
+    "/api/inquiries/threads/{threadId}/messages": {
+      post: {
+        tags: ["Inquiries"],
+        summary: "Reply in an inquiry conversation",
+        description:
+          "Allows either the buyer or seller in the thread to send a reply. The message is added to the same conversation.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "threadId",
+            in: "path",
+            required: true,
+            schema: { type: "string" }
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/InquiryRequest" }
+            }
+          }
+        },
+        responses: {
+          201: { description: "Reply sent" },
+          400: { description: "Invalid message" },
+          401: { description: "Unauthorized" },
+          403: { description: "Not a participant in this conversation" },
+          404: { description: "Conversation not found" }
         }
       }
     },

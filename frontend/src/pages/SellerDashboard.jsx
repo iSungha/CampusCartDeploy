@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Edit, PlusCircle, Trash2 } from "lucide-react";
+import { Edit, MessageSquare, PlusCircle, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import api from "../api/api";
@@ -62,10 +62,17 @@ export default function SellerDashboard() {
             <p>Manage the listings you posted on CampusCart.</p>
           </div>
 
-          <Link to="/sell" className="primary-button">
-            <PlusCircle size={18} />
-            New Listing
-          </Link>
+          <div className="dashboard-header-actions">
+            <Link to="/inquiries" className="secondary-button">
+              <MessageSquare size={18} />
+              View Inquiries
+            </Link>
+
+            <Link to="/sell" className="primary-button">
+              <PlusCircle size={18} />
+              New Listing
+            </Link>
+          </div>
         </div>
 
         {loading && <p className="page-message">Loading your listings...</p>}

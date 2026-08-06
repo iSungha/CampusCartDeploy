@@ -6,7 +6,7 @@ import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import "./index.css";
 
-console.info("CampusCart frontend build: image-upload-vercel-fix-v2");
+console.info("CampusCart frontend build: threaded-inquiries-v1");
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

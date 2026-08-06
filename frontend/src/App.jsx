@@ -9,6 +9,8 @@ import SellerDashboard from "./pages/SellerDashboard";
 import EditListing from "./pages/EditListing";
 import SavedListings from "./pages/SavedListings";
 import ContactSeller from "./pages/ContactSeller";
+import Inquiries from "./pages/Inquiries";
+import InquiryThread from "./pages/InquiryThread";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -36,6 +38,24 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SavedListings />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inquiries"
+        element={
+          <ProtectedRoute>
+            <Inquiries />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inquiries/:threadId"
+        element={
+          <ProtectedRoute>
+            <InquiryThread />
           </ProtectedRoute>
         }
       />
