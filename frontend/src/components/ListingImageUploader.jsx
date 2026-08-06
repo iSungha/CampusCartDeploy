@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -13,17 +13,23 @@ function formatFileSize(bytes) {
 }
 
 export default function ListingImageUploader({
-  files,
+  files = [],
   onFilesChange,
   existingImageUrls = [],
   onExistingImageUrlsChange,
   disabled = false,
 }) {
+  const inputId = useId();
+  const hintId = `${inputId}-hint`;
+  const selectedFiles = Array.isArray(files) ? files : [];
+  const savedImageUrls = Array.isArray(existingImageUrls)
+    ? existingImageUrls
+    : [];
   const [previews, setPreviews] = useState([]);
-  const currentImageCount = existingImageUrls.length + files.length;
+  const currentImageCount = savedImageUrls.length + selectedFiles.length;
 
   useEffect(() => {
-    const nextPreviews = files.map((file) => ({
+    const nextPreviews = selectedFiles.map((file) => ({
       file,
       url: URL.createObjectURL(file),
     }));
@@ -33,10 +39,12 @@ export default function ListingImageUploader({
     return () => {
       nextPreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
     };
-  }, [files]);
+  }, [selectedFiles]);
 
   function handleFileSelection(event) {
     const chosenFiles = Array.from(event.target.files || []);
+
+    // Allow the same file to be chosen again after it has been removed.
     event.target.value = "";
 
     if (!chosenFiles.length) {
@@ -63,7 +71,7 @@ export default function ListingImageUploader({
         continue;
       }
 
-      const isDuplicate = [...files, ...validFiles].some(
+      const isDuplicate = [...selectedFiles, ...validFiles].some(
         (currentFile) =>
           currentFile.name === file.name &&
           currentFile.size === file.size &&
@@ -81,28 +89,38 @@ export default function ListingImageUploader({
       );
     }
 
-    onFilesChange([...files, ...validFiles.slice(0, remainingSlots)]);
+    onFilesChange?.([
+      ...selectedFiles,
+      ...validFiles.slice(0, remainingSlots),
+    ]);
   }
 
   function removeSelectedFile(indexToRemove) {
-    onFilesChange(files.filter((_, index) => index !== indexToRemove));
+    onFilesChange?.(
+      selectedFiles.filter((_, index) => index !== indexToRemove)
+    );
   }
 
   function removeExistingImage(indexToRemove) {
     onExistingImageUrlsChange?.(
-      existingImageUrls.filter((_, index) => index !== indexToRemove)
+      savedImageUrls.filter((_, index) => index !== indexToRemove)
     );
   }
 
   return (
-    <section className="listing-image-uploader" aria-labelledby="image-upload-title">
+    <section
+      className="listing-image-uploader"
+      aria-labelledby={`${inputId}-title`}
+    >
       <div className="listing-image-upload-heading">
         <div>
-          <span id="image-upload-title" className="listing-image-upload-title">
-            Upload Product Images (optional)
+          <span id={`${inputId}-title`} className="listing-image-upload-title">
+            Product Images (optional)
           </span>
           <p>
-            Choose image files from your device. CampusCart uploads them to Cloudinary first, then saves the returned Cloudinary URLs with the listing. You can select up to {MAX_LISTING_IMAGES} JPG, PNG, or WEBP files, up to 5 MB each.
+            Select images from your device. CampusCart uploads each file to
+            Cloudinary and saves the returned URL in the listing&apos;s
+            imageUrls array.
           </p>
         </div>
 
@@ -111,21 +129,32 @@ export default function ListingImageUploader({
         </span>
       </div>
 
-      <label className={`image-file-picker ${disabled ? "disabled" : ""}`}>
+      <label
+        htmlFor={inputId}
+        className={`image-file-picker ${
+          disabled || currentImageCount >= MAX_LISTING_IMAGES ? "disabled" : ""
+        }`}
+      >
         <ImagePlus size={22} />
-        <span>{currentImageCount ? "Add more images" : "Choose product images"}</span>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          disabled={disabled || currentImageCount >= MAX_LISTING_IMAGES}
-          onChange={handleFileSelection}
-        />
+        <span>
+          {currentImageCount ? "Add more images" : "Choose product images"}
+        </span>
       </label>
 
-      {(existingImageUrls.length > 0 || previews.length > 0) && (
+      <input
+        id={inputId}
+        className="image-file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        aria-describedby={hintId}
+        disabled={disabled || currentImageCount >= MAX_LISTING_IMAGES}
+        onChange={handleFileSelection}
+      />
+
+      {(savedImageUrls.length > 0 || previews.length > 0) && (
         <div className="listing-image-preview-grid">
-          {existingImageUrls.map((url, index) => (
+          {savedImageUrls.map((url, index) => (
             <article className="listing-image-preview" key={`${url}-${index}`}>
               <img src={url} alt={`Current listing image ${index + 1}`} />
               <span className="image-status-label">Current</span>
@@ -163,9 +192,9 @@ export default function ListingImageUploader({
         </div>
       )}
 
-      <p className="field-hint">
-        Images are uploaded securely to Cloudinary. CampusCart saves only the
-        Cloudinary URLs returned by the backend.
+      <p id={hintId} className="field-hint">
+        JPG, PNG, or WEBP. Maximum 5 MB per image and {MAX_LISTING_IMAGES}
+        images per listing. Users never need to paste an image URL.
       </p>
     </section>
   );

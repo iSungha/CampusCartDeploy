@@ -78,7 +78,7 @@ Supported files: JPG, PNG, and WEBP, maximum 5 MB each and up to 5 images per li
 - Admin metrics, listing moderation, and user deactivation
 - Server-backed logout through `POST /api/auth/logout`
 - Authenticated password reset through `POST /api/auth/reset-password`
-- Netlify SPA redirects and security headers
+- Vercel and Netlify SPA fallback routing for refresh-safe React routes
 
 ## AI example
 
@@ -113,3 +113,4 @@ npm run build:local
 - The token and logged-in user are saved in localStorage.
 - Temporary Render cold starts, network failures, CORS errors, and 5xx responses no longer erase the saved login during refresh.
 - `vercel.json` rewrites deep links to `index.html`, so refreshing `/listings`, `/profile`, and other React routes works on Vercel.
+- Keep `vercel.json` in the same deployed root folder as `package.json`; after pushing these files, redeploy Vercel so the rewrite is applied.
