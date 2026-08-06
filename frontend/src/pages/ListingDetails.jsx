@@ -183,38 +183,54 @@ export default function ListingDetails() {
               </div>
 
               <div className="details-actions">
-                <button
-                  className={`secondary-button ${
-                    isSaved ? "is-saved-button" : ""
-                  }`}
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  <Heart size={18} fill={isSaved ? "currentColor" : "none"} />
-                  {saving ? "Saving..." : isSaved ? "Saved" : "Save Listing"}
-                </button>
-
                 {isOwner ? (
-                  <Link
-                    to={`/listings/${listing._id}/edit`}
-                    className="primary-button"
-                  >
-                    <Pencil size={18} />
-                    Edit Listing
-                  </Link>
+                  <>
+                    <Link to="/listings" className="secondary-button">
+                      <ArrowLeft size={18} />
+                      Continue Browsing
+                    </Link>
+
+                    <Link
+                      to={`/listings/${listing._id}/edit`}
+                      className="primary-button"
+                    >
+                      <Pencil size={18} />
+                      Edit Listing
+                    </Link>
+                  </>
                 ) : (
-                  <Link
-                    to={
-                      isAuthenticated
-                        ? `/listings/${listing._id}/contact`
-                        : "/login"
-                    }
-                    className="primary-button"
-                  >
-                    <Mail size={18} />
-                    Contact Seller
-                  </Link>
+                  <>
+                    <button
+                      className={`secondary-button ${
+                        isSaved ? "is-saved-button" : ""
+                      }`}
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                    >
+                      <Heart
+                        size={18}
+                        fill={isSaved ? "currentColor" : "none"}
+                      />
+                      {saving
+                        ? "Saving..."
+                        : isSaved
+                          ? "Saved"
+                          : "Save Listing"}
+                    </button>
+
+                    <Link
+                      to={
+                        isAuthenticated
+                          ? `/listings/${listing._id}/contact`
+                          : "/login"
+                      }
+                      className="primary-button"
+                    >
+                      <Mail size={18} />
+                      Contact Seller
+                    </Link>
+                  </>
                 )}
               </div>
             </div>
