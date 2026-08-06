@@ -86,6 +86,31 @@ img {
   background: #eff6ff;
 }
 
+.navbar-links .inquiries-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.inquiries-nav-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3);
+}
+
 .navbar-actions {
   display: flex;
   align-items: center;

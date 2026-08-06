@@ -676,6 +676,33 @@ const swaggerDocument = {
       }
     },
 
+    "/api/inquiries/unread-count": {
+      get: {
+        tags: ["Inquiries"],
+        summary: "Get unread inquiry message count",
+        description:
+          "Returns the number of unread messages sent to the logged-in user. Opening a conversation marks its incoming messages as read.",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Unread message count returned",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    unreadCount: { type: "integer", example: 2 }
+                  }
+                }
+              }
+            }
+          },
+          401: { description: "Unauthorized" },
+          500: { description: "Failed to fetch unread inquiry count" }
+        }
+      }
+    },
+
     "/api/inquiries/threads": {
       get: {
         tags: ["Inquiries"],

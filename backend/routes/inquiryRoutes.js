@@ -168,6 +168,28 @@ router.post("/listings/:listingId", protect, async (req, res) => {
   }
 });
 
+// GET /api/inquiries/unread-count
+// Counts only unread messages sent by the other participant. Legacy inquiry
+// records without sender are treated as buyer-sent messages.
+router.get("/unread-count", protect, async (req, res) => {
+  try {
+    const unreadCount = await Inquiry.countDocuments({
+      status: "new",
+      $or: [{ buyer: req.user._id }, { seller: req.user._id }],
+      $expr: {
+        $ne: [{ $ifNull: ["$sender", "$buyer"] }, req.user._id]
+      }
+    });
+
+    return res.status(200).json({ unreadCount });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch unread inquiry count",
+      error: error.message
+    });
+  }
+});
+
 // GET /api/inquiries/threads
 // Returns one Marketplace-style conversation row per listing + buyer + seller.
 router.get("/threads", protect, async (req, res) => {

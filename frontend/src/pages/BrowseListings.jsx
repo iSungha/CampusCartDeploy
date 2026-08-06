@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import api from "../api/api";
 import Navbar from "../components/Navbar";
 import ListingCard from "../components/ListingCard";
+import { useAuth } from "../context/AuthContext";
 
 const categories = [
   { label: "All Categories", value: "" },
@@ -23,6 +24,12 @@ const conditions = [
   { label: "Fair", value: "fair" },
 ];
 
+function getId(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return String(value._id || value.id || "");
+}
+
 function getParams(filters) {
   const activeSortBy = filters.sortBy || "createdAt";
 
@@ -36,6 +43,7 @@ function getParams(filters) {
 }
 
 export default function BrowseListings() {
+  const { isAuthenticated, user } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -102,6 +110,17 @@ export default function BrowseListings() {
       sortBy,
     });
   }
+
+  const currentUserId = getId(user);
+  const visibleListings =
+    isAuthenticated && currentUserId
+      ? listings.filter(
+          (listing) => getId(listing.seller) !== currentUserId
+        )
+      : listings;
+
+  const onlyOwnListingsHidden =
+    listings.length > 0 && visibleListings.length === 0;
 
   function clearFilters() {
     setSearch("");
@@ -193,20 +212,27 @@ export default function BrowseListings() {
 
         {!loading && error && <p className="error-message">{error}</p>}
 
-        {!loading && !error && listings.length === 0 && (
+        {!loading && !error && visibleListings.length === 0 && (
           <div className="empty-state">
-            <h2>No listings found</h2>
-            <p>Try changing your search or filters.</p>
+            <h2>
+              {onlyOwnListingsHidden
+                ? "No other students' listings found"
+                : "No listings found"}
+            </h2>
+            <p>
+              {onlyOwnListingsHidden
+                ? "Your own listings are available in Dashboard."
+                : "Try changing your search or filters."}
+            </p>
           </div>
         )}
 
-        {!loading && !error && listings.length > 0 && (
+        {!loading && !error && visibleListings.length > 0 && (
           <div className="cc-market-grid">
-
-        {listings.map((listing) => (
-        <ListingCard key={listing._id} listing={listing} />
-        ))}
-      </div>
+            {visibleListings.map((listing) => (
+              <ListingCard key={listing._id} listing={listing} />
+            ))}
+          </div>
         )}
       </main>
     </>

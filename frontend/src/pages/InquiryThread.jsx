@@ -54,6 +54,10 @@ export default function InquiryThread() {
 
         const response = await api.get(`/inquiries/threads/${threadId}`);
         setThread(normalizeThread(response.data));
+
+        // The backend marks incoming messages in this thread as read. Tell the
+        // navbar to refresh immediately instead of waiting for the 30s poll.
+        window.dispatchEvent(new Event("campuscart:inquiries-read"));
       } catch (requestError) {
         console.error("Load inquiry thread error:", requestError);
         setError(
