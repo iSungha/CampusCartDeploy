@@ -205,8 +205,6 @@ export default function CreateListing() {
           <ListingImageUploader
             files={imageFiles}
             onFilesChange={setImageFiles}
-            existingImageUrls={[]}
-            onExistingImageUrlsChange={() => {}}
             disabled={submitting}
           />
 

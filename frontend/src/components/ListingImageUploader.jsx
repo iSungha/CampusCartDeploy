@@ -118,9 +118,8 @@ export default function ListingImageUploader({
             Product Images (optional)
           </span>
           <p>
-            Select images from your device. CampusCart uploads each file to
-            Cloudinary and saves the returned URL in the listing&apos;s
-            imageUrls array.
+            Browse your device and select the product photos you want to use.
+            They will upload automatically when you create the listing.
           </p>
         </div>
 
@@ -137,7 +136,7 @@ export default function ListingImageUploader({
       >
         <ImagePlus size={22} />
         <span>
-          {currentImageCount ? "Add more images" : "Choose product images"}
+          {currentImageCount ? "Add more images" : "Browse product images"}
         </span>
       </label>
 
@@ -175,7 +174,7 @@ export default function ListingImageUploader({
               key={`${preview.file.name}-${preview.file.lastModified}`}
             >
               <img src={preview.url} alt={`Selected ${preview.file.name}`} />
-              <span className="image-status-label new">New</span>
+              <span className="image-status-label new">Selected</span>
               <button
                 type="button"
                 aria-label={`Remove ${preview.file.name}`}
@@ -194,7 +193,7 @@ export default function ListingImageUploader({
 
       <p id={hintId} className="field-hint">
         JPG, PNG, or WEBP. Maximum 5 MB per image and {MAX_LISTING_IMAGES}
-        images per listing. Users never need to paste an image URL.
+        images per listing.
       </p>
     </section>
   );
